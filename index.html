@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Imaging Modalities · Live</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#080c12;--surf:#0d1420;--surf2:#131e2e;
+  --border:#1c2d42;--border2:#243548;
+  --cyan:#00d4ff;--orange:#ff7040;--green:#00e676;--gold:#fbbf24;
+  --text:#dce8f0;--muted:#4a6080;--muted2:#2a3f58;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.008) 2px,rgba(0,212,255,.008) 4px);pointer-events:none;z-index:9998}
+
+/* ── SETUP ── */
+#setup{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.setup-logo{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:6px;text-align:center}
+.setup-sub{font-size:12px;color:var(--muted);margin-bottom:22px;text-align:center;line-height:1.7;max-width:340px}
+.setup-card{background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:420px}
+.setup-section-title{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--cyan);text-transform:uppercase;margin-bottom:10px}
+.setup-field{margin-bottom:12px}
+.setup-field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-family:var(--mono)}
+.setup-input{width:100%;background:var(--surf);border:1px solid var(--border2);border-radius:7px;padding:12px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;transition:border-color .2s}
+.setup-input:focus{border-color:var(--cyan)}
+.setup-hint{font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:16px;padding:10px 12px;background:var(--surf);border-radius:7px;border-left:3px solid var(--cyan)}
+.setup-hint a{color:var(--cyan);text-decoration:none}
+.setup-hint code{background:rgba(0,212,255,.1);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:10px}
+.btn-primary{width:100%;padding:14px;background:var(--cyan);border:none;border-radius:9px;color:#060a10;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.06em;transition:all .2s}
+.btn-primary:hover{background:#33eaff}
+.btn-primary:disabled{background:var(--muted2);color:var(--muted);cursor:not-allowed}
+.divider{text-align:center;font-size:11px;color:var(--muted);margin:14px 0;position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border)}
+.divider::before{left:0}.divider::after{right:0}
+.btn-secondary{width:100%;padding:12px;background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .2s}
+.btn-secondary:hover{border-color:var(--muted);color:var(--text)}
+.setup-error{color:#ff6060;font-size:11px;margin-top:8px;font-family:var(--mono);display:none}
+
+/* ── APP ── */
+.app{display:flex;flex-direction:column;height:100vh}
+.tabs{display:flex;background:var(--surf);border-bottom:1px solid var(--border);z-index:10}
+.tab{flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .2s}
+.tab-icon{font-size:13px}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.content{flex:1;overflow:hidden}
+.view{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.view.active{display:block}
+#v-beamer{display:none;flex-direction:column;height:100%;overflow:hidden}
+#v-beamer.active{display:flex}
+
+/* ── INPUT ── */
+.input-wrap{padding:16px 14px 70px}
+.sec-title{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase;margin-bottom:5px}
+.sec-sub{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6}
+
+/* mod grid */
+.mod-group-hdr{grid-column:1/-1;font-family:var(--mono);font-size:8px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;padding:8px 2px 3px;border-top:1px solid var(--border);margin-top:2px}
+.mod-group-hdr:first-child{border-top:none;margin-top:0;padding-top:2px}
+.mod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:20px}
+.mod-card{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:9px 4px;text-align:center;cursor:pointer;transition:all .15s;position:relative;-webkit-tap-highlight-color:transparent}
+.mod-card.sel{background:rgba(0,212,255,.07)}
+.mod-card.done .done-tick{display:block}
+.done-tick{display:none;position:absolute;top:3px;right:4px;font-size:8px;color:var(--green)}
+.mod-abbr{font-family:var(--mono);font-size:10px;font-weight:700;line-height:1}
+.mod-nm{font-size:7px;color:var(--muted);margin-top:2px;line-height:1.3}
+
+/* instructor */
+.instr{background:rgba(251,191,36,.05);border:1px dashed rgba(251,191,36,.3);border-radius:10px;padding:14px;margin-bottom:18px}
+.instr-ttl{font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:.1em;margin-bottom:7px}
+.instr-desc{font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6}
+.instr-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-gold{flex:1;padding:12px 8px;background:var(--gold);border:none;border-radius:8px;color:#111;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;min-width:130px;transition:all .2s}
+.btn-gold:disabled{opacity:.5;cursor:not-allowed}
+.btn-gold-o{flex:1;padding:12px 8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.35);border-radius:8px;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;min-width:130px}
+
+/* sliders */
+.sl-block{margin-bottom:22px}
+.sl-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.sl-name{font-size:13px;font-weight:500;color:var(--text)}
+.sl-val{font-family:var(--mono);font-size:11px;background:var(--surf2);border:1px solid var(--border);padding:2px 9px;border-radius:4px;min-width:128px;text-align:right;color:var(--cyan)}
+.sl-ends{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;outline:none;cursor:pointer;margin:4px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px rgba(0,212,255,.5);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--cyan);border:none;cursor:pointer}
+
+.submit-btn{width:100%;padding:17px;background:var(--cyan);border:none;border-radius:10px;color:#060a10;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;cursor:pointer;box-shadow:0 4px 20px rgba(0,212,255,.3);margin-top:4px}
+.submit-btn:active{transform:scale(.98)}
+.submit-btn:disabled{background:var(--muted2);color:var(--muted);box-shadow:none;cursor:not-allowed}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(70px);padding:11px 26px;border-radius:50px;font-family:var(--mono);font-size:12px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:9999;white-space:nowrap;pointer-events:none}
+.toast.ok{background:var(--green);color:#050e08}
+.toast.err{background:#ff4060;color:#fff}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── BEAMER ── */
+.b-hdr{padding:9px 14px 7px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.b-title{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--cyan)}
+.b-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.b-badge{font-family:var(--mono);font-size:10px;background:var(--surf2);border:1px solid var(--border);padding:3px 9px;border-radius:4px;color:var(--cyan)}
+.axis-bar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--border);flex-shrink:0;align-items:center;flex-wrap:wrap}
+.ax-lbl{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.ax-sel{background:var(--surf2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-family:var(--mono);font-size:10px;outline:none;cursor:pointer}
+.chart-wrap{flex:1;min-height:0;padding:6px 10px 2px;position:relative}
+#mc{width:100%;height:100%;display:block}
+.leg{display:flex;flex-wrap:wrap;gap:4px;padding:5px 14px 7px;justify-content:center;flex-shrink:0}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);padding:2px 7px;background:var(--surf2);border:1px solid var(--border);border-radius:4px;font-family:var(--mono)}
+.leg-i.live{color:var(--text)}
+.leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.live-bar{display:flex;justify-content:space-between;padding:5px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);font-family:var(--mono);flex-shrink:0}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px;animation:blink 2s infinite;vertical-align:middle}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── QR + INFO ── */
+.page-wrap{padding:16px 14px 60px}
+.info-sect{margin-bottom:18px}
+.info-sect h3{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--cyan);text-transform:uppercase;margin-bottom:10px;border-left:3px solid var(--cyan);padding-left:9px}
+.info-card{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:14px}
+.info-card p{font-size:12px;color:var(--muted);line-height:1.7}
+.ref-tbl{width:100%;font-size:11px;border-collapse:collapse}
+.ref-tbl td{padding:5px 4px;border-bottom:1px solid var(--border);vertical-align:top}
+.ref-tbl tr:last-child td{border-bottom:none}
+.ref-tbl td:first-child{font-family:var(--mono);color:var(--cyan);width:38%}
+.reset-btn{width:100%;padding:13px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:8px;color:#ef4444;font-family:var(--mono);font-size:11px;cursor:pointer;margin-top:8px}
+.reset-btn.confirm{background:rgba(239,68,68,.16);border-color:#ef4444}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ SETUP SCREEN ═══════════════════════ -->
+<div id="setup">
+  <div class="setup-logo">Imaging Modalities · Live</div>
+  <div class="setup-sub">One-time setup. Takes about 5 minutes.<br>Works from any phone, forever, for free.</div>
+
+  <div class="setup-card">
+    <div class="setup-section-title">Connect to GitHub Gist</div>
+
+    <div class="setup-hint">
+      <b style="color:var(--text)">How to get a token (takes 3 min):</b><br>
+      1. Go to <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a><br>
+      2. Note: <code>imaging-modalities</code> · No expiry<br>
+      3. Check only: <b style="color:var(--cyan)">✓ gist</b><br>
+      4. Click <b>Generate token</b> → copy it<br>
+      5. Paste token below → click Connect<br>
+      <span style="color:#fbbf24">⚠ The token is only stored in your browser (localStorage). Never shared.</span>
+    </div>
+
+    <div class="setup-field">
+      <label>GitHub Personal Access Token</label>
+      <input class="setup-input" id="ghToken" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    </div>
+
+    <div class="setup-field" id="gistIdField" style="display:none">
+      <label>Gist ID <span style="color:var(--muted)">(auto-filled after first connect)</span></label>
+      <input class="setup-input" id="gistId" type="text" placeholder="Will be created automatically">
+    </div>
+
+    <div class="setup-error" id="setupError"></div>
+    <button class="btn-primary" id="connectBtn" onclick="connectGitHub()">Connect &amp; Start →</button>
+
+    <div class="divider">or</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6">
+      <b style="color:var(--text)">Demo mode:</b> data stays only in this browser tab. Good for testing.
+    </div>
+    <button class="btn-secondary" onclick="startDemo()">Start in Demo Mode</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MAIN APP ═══════════════════════ -->
+<div class="app" id="app" style="display:none">
+  <nav class="tabs">
+    <button class="tab active" onclick="switchTab('input',this)"><span class="tab-icon">✏️</span>INPUT</button>
+    <button class="tab" onclick="switchTab('beamer',this)"><span class="tab-icon">📊</span>BEAMER</button>
+    <button class="tab" onclick="switchTab('qr',this)"><span class="tab-icon">📱</span>QR</button>
+    <button class="tab" onclick="switchTab('info',this)"><span class="tab-icon">ℹ️</span>INFO</button>
+  </nav>
+  <div class="content">
+
+    <!-- INPUT TAB -->
+    <div id="v-input" class="view active">
+      <div class="input-wrap">
+
+        <!-- Secret trigger: tap title 5× fast -->
+        <div id="secretTrigger" onclick="secretTap()" style="user-select:none;-webkit-user-select:none">
+          <div class="sec-title">Group Activity</div>
+          <div class="sec-sub">Select your modality and estimate all values, then submit.</div>
+        </div>
+
+        <!-- Instructor panel (hidden until 5 taps) -->
+        <div id="instrPanel" class="instr" style="display:none">
+          <div class="instr-ttl">🔬 INSTRUCTOR MODE — Research-Accurate Reference Data</div>
+          <div class="instr-desc">Values from peer-reviewed literature. Fill all 19 modalities for a live demonstration.</div>
+          <div class="instr-row">
+            <button id="fillAllBtn" class="btn-gold" onclick="autofillAll()">▶ Fill ALL 19</button>
+            <button class="btn-gold-o" onclick="autofillOne()">Fill Selected Only</button>
+          </div>
+        </div>
+
+        <div class="sec-title" style="margin-bottom:8px">1 · Select Your Modality</div>
+        <div class="mod-grid" id="modGrid"></div>
+
+        <div id="sliderSection" style="display:none">
+          <div class="sec-title" style="margin-bottom:14px" id="sliderTitle">2 · Estimate Values</div>
+          <div id="slidersWrap"></div>
+          <button class="submit-btn" id="submitBtn" onclick="submitEntry()">▶ SUBMIT</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BEAMER TAB -->
+    <div id="v-beamer" class="view">
+      <div class="b-hdr">
+        <div>
+          <div class="b-title">IMAGING MODALITIES · LIFE SCIENCES</div>
+          <div class="b-sub">Introduction to Imaging · Group Activity</div>
+        </div>
+        <div class="b-badge" id="countBadge">0 / 19</div>
+      </div>
+      <div class="axis-bar">
+        <span class="ax-lbl">X :</span>
+        <select id="bX" class="ax-sel" style="color:var(--cyan);border-color:rgba(0,212,255,.3)" onchange="drawChart()"></select>
+        <span class="ax-lbl" style="margin-left:5px">Y :</span>
+        <select id="bY" class="ax-sel" style="color:var(--orange);border-color:rgba(255,112,64,.3)" onchange="drawChart()"></select>
+        <span class="ax-lbl" style="margin-left:5px">Size :</span>
+        <select id="bS" class="ax-sel" style="color:var(--muted)" onchange="drawChart()">
+          <option value="none">uniform</option>
+        </select>
+      </div>
+      <div class="chart-wrap"><canvas id="mc"></canvas></div>
+      <div class="leg" id="leg"></div>
+      <div class="live-bar">
+        <span><span class="pulse"></span>Live · every 5 sec</span>
+        <span id="syncTime">–</span>
+      </div>
+    </div>
+
+    <!-- QR TAB -->
+    <div id="v-qr" class="view">
+      <div class="page-wrap">
+        <div class="sec-title" style="margin-bottom:4px">QR Code for Students</div>
+        <div class="sec-sub">Students scan this to open the app on their phones — no login, no install.</div>
+        <div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px">
+          <canvas id="qrCanvas" style="display:block;margin:0 auto;max-width:240px;width:100%;border-radius:6px"></canvas>
+          <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);word-break:break-all;line-height:1.6" id="qrUrlLabel">–</div>
+        </div>
+        <div class="info-card" style="margin-bottom:12px">
+          <div class="sec-title" style="margin-bottom:8px">Your App URL</div>
+          <input id="customUrl" type="url" placeholder="https://YOUR-NAME.github.io/imaging/"
+            style="width:100%;background:var(--surf);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;margin-bottom:8px"
+            oninput="generateQR()">
+          <p style="font-size:11px;color:var(--muted);line-height:1.7">Enter your GitHub Pages URL above to generate the QR code. See the setup guide for how to get this URL.</p>
+        </div>
+        <div class="info-card">
+          <div class="sec-title" style="margin-bottom:10px">Group Assignments</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px" id="grpAssign"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFO TAB -->
+    <div id="v-info" class="view">
+      <div class="page-wrap">
+        <div class="info-sect">
+          <h3>How it Works</h3>
+          <div class="info-card">
+            <p>
+              <b style="color:var(--text)">Students (phone):</b> Open URL → select modality → move sliders → Submit. Done.<br><br>
+              <b style="color:var(--text)">Instructor (projector):</b> Open Beamer tab. Updates every 5 sec. Switch X/Y axes live.<br><br>
+              <b style="color:var(--text)">Secret autofill:</b> Tap <b style="color:var(--gold)">"Group Activity"</b> five times quickly → instructor panel appears.
+            </p>
+          </div>
+        </div>
+        <div class="info-sect">
+          <h3>The 3 Extra Axes</h3>
+          <div class="info-card">
+            <table class="ref-tbl">
+              <tr><td>Temporal Resolution</td><td style="color:var(--muted)">EEG/ECG &lt;1 ms vs. fNIRS seconds vs. static TEM — spatial and temporal resolution are independent!</td></tr>
+              <tr><td>Live / In-vivo</td><td style="color:var(--muted)">Wearable ECG vs. ex-vivo TEM — key distinction for clinical vs. basic research</td></tr>
+              <tr><td>Molecular Specificity</td><td style="color:var(--muted)">Raman & MSI: label-free chemical ID; SEM: morphology only — the chemical imaging revolution</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="info-sect">
+          <h3>Scale (1–10)</h3>
+          <div class="info-card"><table class="ref-tbl" id="scaleTable"></table></div>
+        </div>
+        <div class="info-sect">
+          <h3>All Modalities</h3>
+          <div class="info-card"><table class="ref-tbl" id="modTable"></table></div>
+        </div>
+        <button class="reset-btn" id="resetBtn" onclick="handleReset()">🗑 Reset All Entries (Instructor)</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ═══════════════════════════ DATA ═══════════════════════════
+const MODS=[
+  {id:'SXT',   abbr:'SXT',   name:'Soft X-ray Tomography',               color:'#00d4ff',group:'micro'},
+  {id:'HREM',  abbr:'HREM',  name:'High Res. Episcopic Microscopy',       color:'#ff7040',group:'micro'},
+  {id:'TEM',   abbr:'TEM',   name:'Transmission Electron Microscopy',     color:'#a78bfa',group:'micro'},
+  {id:'SEM',   abbr:'SEM',   name:'Scanning Electron Microscopy',         color:'#34d399',group:'micro'},
+  {id:'LSFM',  abbr:'LSFM',  name:'Light Sheet Fluorescence Microscopy',  color:'#fbbf24',group:'micro'},
+  {id:'MPM',   abbr:'MPM',   name:'MultiPhoton Microscopy',               color:'#f472b6',group:'micro'},
+  {id:'AFM',   abbr:'AFM',   name:'Atomic Force Microscopy',              color:'#60a5fa',group:'micro'},
+  {id:'SR',    abbr:'SR',    name:'Super-resolution (STORM/PALM/STED)',   color:'#fb923c',group:'micro'},
+  {id:'CryoEM',abbr:'CryoEM',name:'Cryo-Electron Microscopy',            color:'#67e8f9',group:'micro'},
+  {id:'OCT',   abbr:'OCT',   name:'Optical Coherence Tomography',         color:'#86efac',group:'optical'},
+  {id:'MSI',   abbr:'MSI',   name:'Mass Spectrometry Imaging',            color:'#c4b5fd',group:'optical'},
+  {id:'RAMAN', abbr:'Raman', name:'Raman Imaging',                        color:'#fdba74',group:'optical'},
+  {id:'fNIRS', abbr:'fNIRS', name:'Functional Near-Infrared Spectroscopy',color:'#f0abfc',group:'neuro'},
+  {id:'EEG',   abbr:'EEG',   name:'Electroencephalography',               color:'#fde68a',group:'neuro'},
+  {id:'EMG',   abbr:'EMG',   name:'Electromyography',                     color:'#a5f3fc',group:'neuro'},
+  {id:'ECG',   abbr:'ECG',   name:'Electrocardiography',                  color:'#6ee7b7',group:'neuro'},
+  {id:'ES',    abbr:'ES',    name:'Endoscopy',                            color:'#fca5a5',group:'clinical'},
+  {id:'BX',    abbr:'BX',    name:'Biopsy',                               color:'#ff6b6b',group:'clinical'},
+  {id:'LAP',   abbr:'LAP',   name:'Laparoscopy',                          color:'#f97316',group:'clinical'},
+];
+const GRPS=[
+  {id:'micro',   label:'Microscopy & Imaging'},
+  {id:'optical', label:'Optical & Spectroscopy'},
+  {id:'neuro',   label:'Functional / Neuro'},
+  {id:'clinical',label:'Clinical / Invasive'},
+];
+const AXES=[
+  {id:'res', label:'Spatial Resolution',       short:'Resolution', ends:['~1 mm (low)','~0.1 nm (atomic)']},
+  {id:'pen', label:'Penetration Depth',         short:'Penetration',ends:['surface only','whole organ / cm']},
+  {id:'cost',label:'Cost per Measurement',      short:'Cost',       ends:['very low','national facility']},
+  {id:'inv', label:'Invasiveness',              short:'Invasiveness',ends:['non-invasive','destructive']},
+  {id:'prep',label:'Sample Preparation',        short:'Sample Prep',ends:['none needed','extensive / weeks']},
+  {id:'tput',label:'Throughput',                short:'Throughput', ends:['< 1 / day','real-time / 1000s/hr']},
+  {id:'tres',label:'Temporal Resolution',       short:'Temporal',   ends:['static / none','< 1 ms real-time']},
+  {id:'live',label:'Live / In-vivo Compatible', short:'Live/In-vivo',ends:['ex-vivo only','wearable in-vivo']},
+  {id:'spec',label:'Molecular Specificity',     short:'Specificity',ends:['no chem. info','single-molecule ID']},
+];
+const VLBLS={
+  res: ['~1 mm','~500 µm','~50 µm','~5 µm','~1 µm','~200 nm','~50 nm','~5 nm','~1 nm','< 0.1 nm'],
+  pen: ['< 1 nm','~1 nm','~10 nm','~100 nm','~1 µm','~10 µm','~100 µm','~1 mm','~1 cm','> 5 cm'],
+  cost:['very low','low','low-mod.','moderate','mod.-high','high','very high','extremely high','infrastructure','national facility'],
+  inv: ['non-invasive','minimal','very low','low','moderate','medium','high','very high','strongly','destructive'],
+  prep:['none','minimal','very low','low','some','moderate','heavy (fix.)','very heavy','intensive','extreme (wks)'],
+  tput:['< 1/day','1–2/day','few/day','~10/day','~50/day','100+/day','very high','high+','very fast','real-time'],
+  tres:['static','days','hours','minutes','seconds','100 ms','10 ms','1 ms','100 µs','< 1 µs'],
+  live:['ex-vivo only','needs fixation','cryo/fixed','not live','limited','some live ok','partial','in-vivo ok','largely','fully wearable'],
+  spec:['none','minimal','low','some contrast','moderate','label-dep.','high (fluor.)','chem. fingerprint','molecular ID','single-molecule'],
+};
+const REF={
+  SXT:   {res:7,pen:5,cost:8,inv:8, prep:8,tput:2,tres:1,live:1,spec:4},
+  HREM:  {res:4,pen:2,cost:6,inv:10,prep:9,tput:2,tres:1,live:1,spec:3},
+  TEM:   {res:9,pen:1,cost:8,inv:10,prep:9,tput:1,tres:1,live:1,spec:5},
+  SEM:   {res:8,pen:2,cost:6,inv:8, prep:7,tput:3,tres:1,live:2,spec:3},
+  LSFM:  {res:5,pen:7,cost:5,inv:3, prep:4,tput:6,tres:5,live:7,spec:7},
+  MPM:   {res:6,pen:7,cost:7,inv:3, prep:3,tput:4,tres:5,live:8,spec:6},
+  AFM:   {res:9,pen:1,cost:6,inv:4, prep:2,tput:1,tres:4,live:6,spec:4},
+  SR:    {res:8,pen:1,cost:7,inv:5, prep:6,tput:2,tres:4,live:5,spec:8},
+  CryoEM:{res:10,pen:1,cost:9,inv:10,prep:8,tput:1,tres:1,live:1,spec:6},
+  OCT:   {res:4,pen:6,cost:4,inv:1, prep:1,tput:7,tres:6,live:9,spec:2},
+  MSI:   {res:4,pen:1,cost:8,inv:10,prep:7,tput:3,tres:1,live:1,spec:10},
+  RAMAN: {res:5,pen:3,cost:5,inv:2, prep:1,tput:3,tres:4,live:7,spec:9},
+  fNIRS: {res:2,pen:6,cost:3,inv:1, prep:1,tput:8,tres:4,live:10,spec:3},
+  EEG:   {res:2,pen:5,cost:2,inv:1, prep:2,tput:9,tres:9,live:10,spec:2},
+  EMG:   {res:3,pen:4,cost:2,inv:2, prep:1,tput:9,tres:9,live:10,spec:3},
+  ECG:   {res:2,pen:8,cost:1,inv:1, prep:1,tput:10,tres:9,live:10,spec:2},
+  ES:    {res:3,pen:9,cost:5,inv:6, prep:3,tput:5,tres:6,live:9,spec:3},
+  BX:    {res:6,pen:10,cost:4,inv:9,prep:5,tput:3,tres:1,live:1,spec:8},
+  LAP:   {res:2,pen:10,cost:7,inv:8,prep:4,tput:3,tres:6,live:8,spec:3},
+};
+
+// ═══════════════════ GITHUB GIST BACKEND ═══════════════════
+const LS_TOKEN='img_gh_token', LS_GIST='img_gh_gist';
+let GH_TOKEN='', GIST_ID='', DEMO_MODE=false;
+let liveData={};
+
+async function connectGitHub(){
+  const token=document.getElementById('ghToken').value.trim();
+  if(!token){showSetupError('Please enter your GitHub token.');return;}
+  const btn=document.getElementById('connectBtn');
+  btn.textContent='Connecting…';btn.disabled=true;
+  // check for saved gist
+  const savedGist=localStorage.getItem(LS_GIST);
+  GH_TOKEN=token;
+  try{
+    if(savedGist){
+      // verify it exists
+      const r=await ghGet(savedGist);
+      if(r.ok){GIST_ID=savedGist;}
+      else{GIST_ID=await createGist();}
+    } else {
+      GIST_ID=await createGist();
+    }
+    localStorage.setItem(LS_TOKEN,token);
+    localStorage.setItem(LS_GIST,GIST_ID);
+    startApp();
+  }catch(e){
+    showSetupError('Connection failed: '+e.message);
+    btn.textContent='Connect & Start →';btn.disabled=false;
+  }
+}
+
+async function createGist(){
+  const r=await fetch('https://api.github.com/gists',{
+    method:'POST',
+    headers:{Authorization:'token '+GH_TOKEN,'Content-Type':'application/json'},
+    body:JSON.stringify({description:'Imaging Modalities Live Data',public:false,
+      files:{'imaging-data.json':{content:JSON.stringify({})}}})
+  });
+  if(!r.ok) throw new Error('Could not create Gist (check token has "gist" permission)');
+  const j=await r.json();
+  return j.id;
+}
+
+async function ghGet(gistId){
+  return fetch(`https://api.github.com/gists/${gistId}`,{
+    headers:{Authorization:'token '+GH_TOKEN}
+  });
+}
+
+async function gistRead(){
+  if(DEMO_MODE) return {...liveData};
+  try{
+    const r=await ghGet(GIST_ID);
+    if(!r.ok) return {};
+    const j=await r.json();
+    const content=j.files?.['imaging-data.json']?.content||'{}';
+    return JSON.parse(content);
+  }catch(e){return {};}
+}
+
+async function gistWrite(data){
+  if(DEMO_MODE){liveData={...data};return;}
+  try{
+    await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+      method:'PATCH',
+      headers:{Authorization:'token '+GH_TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({files:{'imaging-data.json':{content:JSON.stringify(data)}}})
+    });
+  }catch(e){console.warn('Gist write failed',e);}
+}
+
+async function gistSetOne(id,vals){
+  const all=await gistRead();
+  all[id]=vals;
+  await gistWrite(all);
+}
+
+async function gistClear(){
+  await gistWrite({});
+}
+
+function startDemo(){
+  DEMO_MODE=true;
+  startApp();
+}
+
+// ═══════════════════════ APP INIT ═══════════════════════════
+function startApp(){
+  // try to restore saved credentials
+  if(!DEMO_MODE&&!GH_TOKEN){
+    const t=localStorage.getItem(LS_TOKEN);
+    const g=localStorage.getItem(LS_GIST);
+    if(t&&g){GH_TOKEN=t;GIST_ID=g;}
+  }
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').style.display='flex';
+  buildModGrid();buildBeamerSelects();buildInfoTables();buildGroupAssign();
+  pollData();
+  setInterval(pollData,5000);
+}
+
+// auto-restore on page load
+window.addEventListener('load',()=>{
+  const t=localStorage.getItem(LS_TOKEN);
+  const g=localStorage.getItem(LS_GIST);
+  if(t&&g){
+    document.getElementById('ghToken').value='••••••••••••••••';
+    GH_TOKEN=t;GIST_ID=g;
+    startApp();
+  }
+});
+
+// ═══════════════════════ STATE ══════════════════════════════
+let selMod=null, slVals=Object.fromEntries(AXES.map(a=>[a.id,5]));
+let secretCount=0,secretTimer=null,resetConfirm=false;
+
+// ═══════════════════════ SECRET ═════════════════════════════
+function secretTap(){
+  secretCount++;
+  clearTimeout(secretTimer);
+  secretTimer=setTimeout(()=>secretCount=0,2000);
+  if(secretCount>=5){
+    secretCount=0;
+    document.getElementById('instrPanel').style.display='block';
+    showToast('🔬 Instructor mode unlocked!','ok');
+  }
+}
+
+// ═══════════════════════ MOD GRID ═══════════════════════════
+function buildModGrid(){
+  const g=document.getElementById('modGrid');g.innerHTML='';
+  GRPS.forEach(grp=>{
+    const mods=MODS.filter(m=>m.group===grp.id);
+    const h=document.createElement('div');h.className='mod-group-hdr';h.textContent=grp.label;g.appendChild(h);
+    mods.forEach(m=>{
+      const c=document.createElement('div');
+      c.className='mod-card'+(selMod===m.id?' sel':'');
+      c.id='mc_'+m.id;
+      c.style.borderColor=selMod===m.id?m.color:'#1c2d42';
+      if(selMod===m.id)c.style.boxShadow=`0 0 10px ${m.color}33`;
+      c.innerHTML=`<span class="done-tick">✓</span><div class="mod-abbr" style="color:${m.color}">${m.abbr}</div><div class="mod-nm">${m.name.split(' ').slice(0,2).join(' ')}</div>`;
+      c.onclick=()=>selectMod(m.id);
+      g.appendChild(c);
+    });
+  });
+}
+
+function selectMod(id){
+  selMod=id;slVals=Object.fromEntries(AXES.map(a=>[a.id,5]));
+  buildModGrid();
+  const m=MODS.find(x=>x.id===id);
+  document.getElementById('sliderTitle').textContent=`2 · Estimate Values for ${m.abbr}`;
+  document.getElementById('sliderSection').style.display='block';
+  buildSliders();
+  // scroll sliders into view smoothly
+  setTimeout(()=>document.getElementById('sliderSection').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+
+function buildSliders(){
+  const w=document.getElementById('slidersWrap');w.innerHTML='';
+  AXES.forEach(a=>{
+    const v=slVals[a.id]||5;
+    const pct=((v-1)/9)*100;
+    const d=document.createElement('div');d.className='sl-block';
+    d.innerHTML=`<div class="sl-top"><span class="sl-name">${a.label}</span><span class="sl-val" id="sv_${a.id}">${VLBLS[a.id][v-1]}</span></div>
+      <input type="range" id="sl_${a.id}" min="1" max="10" value="${v}"
+        style="background:linear-gradient(to right,var(--cyan) ${pct}%,var(--border2) ${pct}%)"
+        oninput="onSlider('${a.id}',this.value)">
+      <div class="sl-ends"><span>${a.ends[0]}</span><span>${a.ends[1]}</span></div>`;
+    w.appendChild(d);
+  });
+}
+
+function onSlider(id,val){
+  slVals[id]=parseInt(val);
+  document.getElementById('sv_'+id).textContent=VLBLS[id][val-1];
+  const pct=((val-1)/9)*100;
+  document.getElementById('sl_'+id).style.background=`linear-gradient(to right,var(--cyan) ${pct}%,var(--border2) ${pct}%)`;
+}
+
+// ═══════════════════════ SUBMIT ═════════════════════════════
+async function submitEntry(){
+  if(!selMod){showToast('Select a modality first!','err');return;}
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.textContent='Submitting…';
+  await gistSetOne(selMod,{...slVals,ts:Date.now()});
+  markDone(selMod);
+  btn.disabled=false;btn.textContent='▶ SUBMIT';
+  showToast('✓ Submitted! Now live on the chart.');
+  pollData();
+}
+function markDone(id){const c=document.getElementById('mc_'+id);if(c)c.classList.add('done');}
+
+// ═══════════════════════ AUTOFILL ═══════════════════════════
+async function autofillAll(){
+  const btn=document.getElementById('fillAllBtn');btn.disabled=true;
+  const ids=Object.keys(REF);
+  const all=await gistRead();
+  for(let i=0;i<ids.length;i++){
+    all[ids[i]]={...REF[ids[i]],ts:Date.now()};
+    markDone(ids[i]);
+    btn.textContent=`Filling… ${i+1}/${ids.length}`;
+    await new Promise(r=>setTimeout(r,50));
+  }
+  await gistWrite(all);
+  liveData={...all};
+  drawChart();
+  btn.textContent='✓ Done!';btn.disabled=false;
+  showToast('✓ All 19 modalities filled with reference data!');
+}
+async function autofillOne(){
+  if(!selMod){showToast('Select a modality first!','err');return;}
+  const d=REF[selMod];if(!d)return;
+  await gistSetOne(selMod,{...d,ts:Date.now()});
+  slVals={...d};buildSliders();markDone(selMod);
+  showToast(`✓ Reference values loaded for ${selMod}`);
+  pollData();
+}
+
+// ═══════════════════════ POLL ═══════════════════════════════
+async function pollData(){
+  liveData=await gistRead();
+  Object.keys(liveData).forEach(markDone);
+  if(document.getElementById('v-beamer').classList.contains('active')) drawChart();
+  document.getElementById('syncTime').textContent=new Date().toLocaleTimeString('en-GB');
+}
+
+// ═══════════════════════ CHART ══════════════════════════════
+function buildBeamerSelects(){
+  ['bX','bY','bS'].forEach(id=>{
+    const s=document.getElementById(id);
+    if(id==='bS'){s.innerHTML='<option value="none">uniform</option>'+AXES.map(a=>`<option value="${a.id}">${a.short}</option>`).join('');}
+    else{s.innerHTML=AXES.map(a=>`<option value="${a.id}">${a.label}</option>`).join('');}
+  });
+  document.getElementById('bX').value='res';
+  document.getElementById('bY').value='pen';
+}
+
+function drawChart(){
+  const canvas=document.getElementById('mc');
+  const wrap=canvas.parentElement;
+  const dpr=window.devicePixelRatio||1;
+  const W=wrap.clientWidth,H=wrap.clientHeight;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+  const xKey=document.getElementById('bX').value;
+  const yKey=document.getElementById('bY').value;
+  const sKey=document.getElementById('bS').value;
+  const xA=AXES.find(a=>a.id===xKey),yA=AXES.find(a=>a.id===yKey);
+  const pL=62,pR=20,pT=26,pB=52;
+  const cw=W-pL-pR,ch=H-pT-pB;
+  ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
+  // grid
+  for(let i=0;i<=10;i++){
+    const x=pL+(i/10)*cw,y=pT+(i/10)*ch;
+    ctx.strokeStyle=(i===0||i===10)?'rgba(0,212,255,.15)':'rgba(0,212,255,.04)';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+ch);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
+  }
+  // axis labels
+  ctx.font="600 11px 'IBM Plex Mono',monospace";ctx.textAlign='center';
+  ctx.fillStyle='#00d4ff';ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-8);
+  ctx.save();ctx.translate(13,pT+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#ff7040';ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
+  // ticks
+  ctx.font="400 9px 'IBM Plex Mono',monospace";ctx.fillStyle='#2a3f58';
+  for(let i=1;i<=10;i++){
+    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+13);
+    ctx.textAlign='right';ctx.fillText(i,pL-5,pT+ch-((i-1)/9)*ch+3);
+  }
+  if(xA){ctx.font="400 9px 'IBM Plex Mono',monospace";ctx.fillStyle='#3a5570';
+    ctx.textAlign='left';ctx.fillText(xA.ends[0],pL,pT+ch+27);
+    ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+27);}
+  // bubbles
+  let count=0;
+  MODS.forEach(mod=>{
+    const d=liveData[mod.id];if(!d)return;count++;
+    const xv=d[xKey]||5,yv=d[yKey]||5;
+    const sv=sKey==='none'?5:(d[sKey]||5);
+    const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch,r=14+sv*2.4;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*2.5);
+    g.addColorStop(0,mod.color+'44');g.addColorStop(1,mod.color+'00');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r*2.5,0,Math.PI*2);ctx.fill();
+    const gf=ctx.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
+    gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
+    ctx.fillStyle=gf;ctx.strokeStyle=mod.color;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#060a10';
+    ctx.font=`700 ${Math.min(12,r*.6)}px 'IBM Plex Mono',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
+  });
+  if(count===0){
+    ctx.fillStyle='rgba(74,96,128,.45)';ctx.font="13px 'IBM Plex Sans',sans-serif";
+    ctx.textAlign='center';ctx.fillText('Waiting for group submissions…',pL+cw/2,pT+ch/2);
+  }
+  // legend
+  const leg=document.getElementById('leg');leg.innerHTML='';
+  MODS.forEach(mod=>{
+    const live=!!liveData[mod.id];
+    const el=document.createElement('div');
+    el.className='leg-i'+(live?' live':'');el.title=mod.name;
+    el.innerHTML=`<span class="leg-dot" style="background:${live?mod.color:'#1c2d42'}"></span>${mod.abbr}`;
+    leg.appendChild(el);
+  });
+  document.getElementById('countBadge').textContent=`${count} / ${MODS.length}`;
+  document.getElementById('syncTime').textContent=new Date().toLocaleTimeString('en-GB');
+}
+
+// ═══════════════════════ QR ═════════════════════════════════
+function generateQR(){
+  const url=document.getElementById('customUrl').value.trim()||window.location.href;
+  document.getElementById('qrUrlLabel').textContent=url;
+  const cv=document.getElementById('qrCanvas');
+  const sz=Math.min(240,cv.parentElement.clientWidth-48);
+  cv.width=sz;cv.height=sz;
+  const ctx=cv.getContext('2d');ctx.fillStyle='#0d1420';ctx.fillRect(0,0,sz,sz);
+  const tmp=document.createElement('div');tmp.style.cssText='position:absolute;left:-9999px';
+  document.body.appendChild(tmp);
+  try{
+    new QRCode(tmp,{text:url,width:sz,height:sz,colorDark:'#e2e8f0',colorLight:'#0d1420',correctLevel:QRCode.CorrectLevel.M});
+    setTimeout(()=>{
+      const img=tmp.querySelector('img');
+      if(img){const i=new Image();i.onload=()=>ctx.drawImage(i,0,0,sz,sz);i.src=img.src;}
+      document.body.removeChild(tmp);
+    },200);
+  }catch(e){document.body.removeChild(tmp);}
+}
+function buildGroupAssign(){
+  const w=document.getElementById('grpAssign');if(!w)return;
+  w.innerHTML=MODS.map((m,i)=>`<div style="background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:7px 5px;text-align:center">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">Group ${i+1}</div>
+    <div style="font-family:var(--mono);font-size:10px;font-weight:700;color:${m.color};margin-top:2px">${m.abbr}</div>
+  </div>`).join('');
+}
+
+// ═══════════════════════ INFO ═══════════════════════════════
+function buildInfoTables(){
+  document.getElementById('scaleTable').innerHTML=AXES.map(a=>`<tr>
+    <td style="color:var(--cyan);font-family:var(--mono);font-size:10px">${a.short}</td>
+    <td style="color:var(--muted)">1 = ${a.ends[0]}<br>10 = ${a.ends[1]}</td></tr>`).join('');
+  document.getElementById('modTable').innerHTML=GRPS.map(grp=>{
+    const mods=MODS.filter(m=>m.group===grp.id);
+    return`<tr><td colspan="2" style="color:var(--muted);font-size:9px;font-family:var(--mono);letter-spacing:.1em;padding-top:10px;text-transform:uppercase">${grp.label}</td></tr>`
+      +mods.map(m=>`<tr><td style="color:${m.color}">${m.abbr}</td><td style="color:var(--muted)">${m.name}</td></tr>`).join('');
+  }).join('');
+}
+
+async function handleReset(){
+  const btn=document.getElementById('resetBtn');
+  if(!resetConfirm){
+    resetConfirm=true;btn.textContent='⚠ Tap again to confirm';btn.classList.add('confirm');
+    setTimeout(()=>{resetConfirm=false;btn.textContent='🗑 Reset All Entries (Instructor)';btn.classList.remove('confirm');},3000);
+    return;
+  }
+  resetConfirm=false;
+  await gistClear();liveData={};
+  document.querySelectorAll('.mod-card').forEach(c=>c.classList.remove('done'));
+  btn.textContent='🗑 Reset All Entries (Instructor)';btn.classList.remove('confirm');
+  showToast('All entries cleared.');drawChart();
+}
+
+// ═══════════════════════ TABS ═══════════════════════════════
+function switchTab(name,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('v-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='beamer')setTimeout(drawChart,30);
+  if(name==='qr')setTimeout(()=>{generateQR();buildGroupAssign();},50);
+}
+window.addEventListener('resize',()=>{
+  if(document.getElementById('v-beamer').classList.contains('active'))drawChart();
+});
+
+// ═══════════════════════ TOAST ══════════════════════════════
+let toastTimer=null;
+function showToast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=`toast ${type} show`;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className=`toast ${type}`,2500);
+}
+function showSetupError(msg){
+  const e=document.getElementById('setupError');e.textContent=msg;e.style.display='block';
+}
+</script>
+</body>
+</html>
