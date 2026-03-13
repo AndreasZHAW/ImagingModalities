@@ -383,47 +383,49 @@ const GRPS=[
   {id:'clinical',label:'Clinical / Invasive'},
 ];
 const AXES=[
-  {id:'res', label:'Spatial Resolution',       short:'Resolution', ends:['~1 mm (low)','~0.1 nm (atomic)']},
-  {id:'pen', label:'Penetration Depth',         short:'Penetration',ends:['surface only','whole organ / cm']},
-  {id:'cost',label:'Cost per Measurement',      short:'Cost',       ends:['very low','national facility']},
-  {id:'inv', label:'Invasiveness',              short:'Invasiveness',ends:['non-invasive','destructive']},
-  {id:'prep',label:'Sample Preparation',        short:'Sample Prep',ends:['none needed','extensive / weeks']},
-  {id:'tput',label:'Throughput',                short:'Throughput', ends:['< 1 / day','real-time / 1000s/hr']},
-  {id:'tres',label:'Temporal Resolution',       short:'Temporal',   ends:['static / none','< 1 ms real-time']},
-  {id:'live',label:'Live / In-vivo Compatible', short:'Live/In-vivo',ends:['ex-vivo only','wearable in-vivo']},
-  {id:'spec',label:'Molecular Specificity',     short:'Specificity',ends:['no chem. info','single-molecule ID']},
+  {id:'res',  label:'Spatial Resolution',       short:'Resolution',  ends:['~1 mm (low)','~0.1 nm (atomic)']},
+  {id:'pen',  label:'Penetration Depth',         short:'Penetration', ends:['surface only','whole organ / cm']},
+  {id:'cost', label:'Cost per Measurement',      short:'Meas. Cost',  ends:['very low','national facility']},
+  {id:'scost',label:'Setup / Instrument Cost',   short:'Setup Cost',  ends:['< 1k CHF','> 100 Mio CHF']},
+  {id:'inv',  label:'Invasiveness',              short:'Invasiveness',ends:['non-invasive','destructive']},
+  {id:'prep', label:'Sample Preparation',        short:'Sample Prep', ends:['none needed','extensive / weeks']},
+  {id:'tput', label:'Throughput',                short:'Throughput',  ends:['< 1 / day','real-time / 1000s/hr']},
+  {id:'tres', label:'Temporal Resolution',       short:'Temporal',    ends:['static / none','< 1 ms real-time']},
+  {id:'live', label:'Live / In-vivo Compatible', short:'Live/In-vivo',ends:['ex-vivo only','wearable in-vivo']},
+  {id:'spec', label:'Molecular Specificity',     short:'Specificity', ends:['no chem. info','single-molecule ID']},
 ];
 const VLBLS={
-  res: ['~1 mm','~500 µm','~50 µm','~5 µm','~1 µm','~200 nm','~50 nm','~5 nm','~1 nm','< 0.1 nm'],
-  pen: ['< 1 nm','~1 nm','~10 nm','~100 nm','~1 µm','~10 µm','~100 µm','~1 mm','~1 cm','> 5 cm'],
-  cost:['very low','low','low-mod.','moderate','mod.-high','high','very high','extrem. high','infrastructure','national facility'],
-  inv: ['non-invasive','minimal','very low','low','moderate','medium','high','very high','strongly','destructive'],
-  prep:['none','minimal','very low','low','some','moderate','heavy (fix.)','very heavy','intensive','extreme (wks)'],
-  tput:['< 1/day','1–2/day','few/day','~10/day','~50/day','100+/day','very high','high+','very fast','real-time'],
-  tres:['static','days','hours','minutes','seconds','100 ms','10 ms','1 ms','100 µs','< 1 µs'],
-  live:['ex-vivo only','needs fixation','cryo/fixed','not live','limited','some live ok','partial','in-vivo ok','largely','fully wearable'],
-  spec:['none','minimal','low','some contrast','moderate','label-dep.','high (fluor.)','chem. fingerprint','molecular ID','single-molecule'],
+  res:  ['~1 mm','~500 µm','~50 µm','~5 µm','~1 µm','~200 nm','~50 nm','~5 nm','~1 nm','< 0.1 nm'],
+  pen:  ['< 1 nm','~1 nm','~10 nm','~100 nm','~1 µm','~10 µm','~100 µm','~1 mm','~1 cm','> 5 cm'],
+  cost: ['very low','low','low-mod.','moderate','mod.-high','high','very high','extrem. high','infrastructure','national facility'],
+  scost:['< 1k CHF','~5k CHF','~20k CHF','~100k CHF','~300k CHF','~1 Mio CHF','~3 Mio CHF','~10 Mio CHF','~30 Mio CHF','> 100 Mio CHF'],
+  inv:  ['non-invasive','minimal','very low','low','moderate','medium','high','very high','strongly','destructive'],
+  prep: ['none','minimal','very low','low','some','moderate','heavy (fix.)','very heavy','intensive','extreme (wks)'],
+  tput: ['< 1/day','1–2/day','few/day','~10/day','~50/day','100+/day','very high','high+','very fast','real-time'],
+  tres: ['static','days','hours','minutes','seconds','100 ms','10 ms','1 ms','100 µs','< 1 µs'],
+  live: ['ex-vivo only','needs fixation','cryo/fixed','not live','limited','some live ok','partial','in-vivo ok','largely','fully wearable'],
+  spec: ['none','minimal','low','some contrast','moderate','label-dep.','high (fluor.)','chem. fingerprint','molecular ID','single-molecule'],
 };
 const REF={
-  SXT:   {res:7,pen:5,cost:8,inv:8, prep:8,tput:2,tres:1,live:1,spec:4},
-  HREM:  {res:4,pen:2,cost:6,inv:10,prep:9,tput:2,tres:1,live:1,spec:3},
-  TEM:   {res:9,pen:1,cost:8,inv:10,prep:9,tput:1,tres:1,live:1,spec:5},
-  SEM:   {res:8,pen:2,cost:6,inv:8, prep:7,tput:3,tres:1,live:2,spec:3},
-  LSFM:  {res:5,pen:7,cost:5,inv:3, prep:4,tput:6,tres:5,live:7,spec:7},
-  MPM:   {res:6,pen:7,cost:7,inv:3, prep:3,tput:4,tres:5,live:8,spec:6},
-  AFM:   {res:9,pen:1,cost:6,inv:4, prep:2,tput:1,tres:4,live:6,spec:4},
-  SR:    {res:8,pen:1,cost:7,inv:5, prep:6,tput:2,tres:4,live:5,spec:8},
-  CryoEM:{res:10,pen:1,cost:9,inv:10,prep:8,tput:1,tres:1,live:1,spec:6},
-  OCT:   {res:4,pen:6,cost:4,inv:1, prep:1,tput:7,tres:6,live:9,spec:2},
-  MSI:   {res:4,pen:1,cost:8,inv:10,prep:7,tput:3,tres:1,live:1,spec:10},
-  RAMAN: {res:5,pen:3,cost:5,inv:2, prep:1,tput:3,tres:4,live:7,spec:9},
-  fNIRS: {res:2,pen:6,cost:3,inv:1, prep:1,tput:8,tres:4,live:10,spec:3},
-  EEG:   {res:2,pen:5,cost:2,inv:1, prep:2,tput:9,tres:9,live:10,spec:2},
-  EMG:   {res:3,pen:4,cost:2,inv:2, prep:1,tput:9,tres:9,live:10,spec:3},
-  ECG:   {res:2,pen:8,cost:1,inv:1, prep:1,tput:10,tres:9,live:10,spec:2},
-  ES:    {res:3,pen:9,cost:5,inv:6, prep:3,tput:5,tres:6,live:9,spec:3},
-  BX:    {res:6,pen:10,cost:4,inv:9,prep:5,tput:3,tres:1,live:1,spec:8},
-  LAP:   {res:2,pen:10,cost:7,inv:8,prep:4,tput:3,tres:6,live:8,spec:3},
+  SXT:   {res:7,pen:5,cost:8,scost:8,inv:8, prep:8,tput:2,tres:1,live:1,spec:4},
+  HREM:  {res:4,pen:2,cost:6,scost:5,inv:10,prep:9,tput:2,tres:1,live:1,spec:3},
+  TEM:   {res:9,pen:1,cost:8,scost:7,inv:10,prep:9,tput:1,tres:1,live:1,spec:5},
+  SEM:   {res:8,pen:2,cost:6,scost:6,inv:8, prep:7,tput:3,tres:1,live:2,spec:3},
+  LSFM:  {res:5,pen:7,cost:5,scost:6,inv:3, prep:4,tput:6,tres:5,live:7,spec:7},
+  MPM:   {res:6,pen:7,cost:7,scost:7,inv:3, prep:3,tput:4,tres:5,live:8,spec:6},
+  AFM:   {res:9,pen:1,cost:6,scost:5,inv:4, prep:2,tput:1,tres:4,live:6,spec:4},
+  SR:    {res:8,pen:1,cost:7,scost:7,inv:5, prep:6,tput:2,tres:4,live:5,spec:8},
+  CryoEM:{res:10,pen:1,cost:9,scost:9,inv:10,prep:8,tput:1,tres:1,live:1,spec:6},
+  OCT:   {res:4,pen:6,cost:4,scost:4,inv:1, prep:1,tput:7,tres:6,live:9,spec:2},
+  MSI:   {res:4,pen:1,cost:8,scost:8,inv:10,prep:7,tput:3,tres:1,live:1,spec:10},
+  RAMAN: {res:5,pen:3,cost:5,scost:5,inv:2, prep:1,tput:3,tres:4,live:7,spec:9},
+  fNIRS: {res:2,pen:6,cost:3,scost:3,inv:1, prep:1,tput:8,tres:4,live:10,spec:3},
+  EEG:   {res:2,pen:5,cost:2,scost:2,inv:1, prep:2,tput:9,tres:9,live:10,spec:2},
+  EMG:   {res:3,pen:4,cost:2,scost:2,inv:2, prep:1,tput:9,tres:9,live:10,spec:3},
+  ECG:   {res:2,pen:8,cost:1,scost:1,inv:1, prep:1,tput:10,tres:9,live:10,spec:2},
+  ES:    {res:3,pen:9,cost:5,scost:4,inv:6, prep:3,tput:5,tres:6,live:9,spec:3},
+  BX:    {res:6,pen:10,cost:4,scost:3,inv:9,prep:5,tput:3,tres:1,live:1,spec:8},
+  LAP:   {res:2,pen:10,cost:7,scost:6,inv:8,prep:4,tput:3,tres:6,live:8,spec:3},
 };
 
 // ══════════════════════ GITHUB GIST BACKEND ══════════════════════
@@ -695,7 +697,7 @@ function drawChart(){
   const yKey=document.getElementById('bY').value;
   const sKey=document.getElementById('bS').value;
   const xA=AXES.find(a=>a.id===xKey),yA=AXES.find(a=>a.id===yKey);
-  const pL=72,pR=24,pT=28,pB=62;
+  const pL=78,pR=24,pT=28,pB=66;
   const cw=W-pL-pR,ch=H-pT-pB;
 
   ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
@@ -709,37 +711,34 @@ function drawChart(){
     ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
   }
 
-  // axis labels — big, clearly readable
-  ctx.font="700 14px 'IBM Plex Mono',monospace";ctx.textAlign='center';
-  ctx.fillStyle='#00d4ff';
-  ctx.shadowColor='rgba(0,212,255,.4)';ctx.shadowBlur=8;
-  ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-10);
-  ctx.save();ctx.translate(16,pT+ch/2);ctx.rotate(-Math.PI/2);
-  ctx.fillStyle='#ff7040';ctx.shadowColor='rgba(255,112,64,.4)';ctx.shadowBlur=8;
+  // axis labels — large, white, high contrast
+  ctx.font="700 15px 'IBM Plex Sans',sans-serif";ctx.textAlign='center';
+  ctx.fillStyle='#ffffff';
+  ctx.shadowColor='rgba(0,212,255,.8)';ctx.shadowBlur=14;
+  ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-12);
+  ctx.save();ctx.translate(18,pT+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.shadowColor='rgba(255,112,64,.8)';ctx.shadowBlur=14;
   ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
   ctx.shadowBlur=0;
 
-  // scale end labels
+  // scale end labels — clearly visible
+  ctx.font="500 11px 'IBM Plex Sans',sans-serif";ctx.fillStyle='#9ab8d4';
   if(xA){
-    ctx.font="400 10px 'IBM Plex Mono',monospace";ctx.fillStyle='#6080a0';
-    ctx.textAlign='left'; ctx.fillText(xA.ends[0],pL,pT+ch+28);
-    ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+28);
+    ctx.textAlign='left'; ctx.fillText(xA.ends[0],pL,pT+ch+30);
+    ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+30);
   }
   if(yA){
-    ctx.font="400 10px 'IBM Plex Mono',monospace";ctx.fillStyle='#6080a0';
-    ctx.save();
-    ctx.translate(pL-36,pT+ch);ctx.rotate(-Math.PI/2);
+    ctx.save();ctx.translate(pL-44,pT+ch);ctx.rotate(-Math.PI/2);
     ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
-    ctx.save();
-    ctx.translate(pL-36,pT);ctx.rotate(-Math.PI/2);
+    ctx.save();ctx.translate(pL-44,pT);ctx.rotate(-Math.PI/2);
     ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
   }
 
-  // ticks
-  ctx.font="400 10px 'IBM Plex Mono',monospace";ctx.fillStyle='#3a5878';
+  // ticks — readable
+  ctx.font="500 11px 'IBM Plex Mono',monospace";ctx.fillStyle='#6888a8';
   for(let i=1;i<=10;i++){
-    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+14);
-    ctx.textAlign='right'; ctx.fillText(i,pL-7,pT+ch-((i-1)/9)*ch+4);
+    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+15);
+    ctx.textAlign='right'; ctx.fillText(i,pL-8,pT+ch-((i-1)/9)*ch+4);
   }
 
   let count=0;
@@ -788,9 +787,9 @@ function drawChart(){
         const same=dist<threshold;
         const arrowColor=same?'#00e676':'#ff7040';
 
-        // draw arrow from ref to student if different
+        // draw arrow from student → reference (shows "where you should go")
         if(!same&&dist>4){
-          drawArrow(ctx,rxc,ryc,sxc,syc,arrowColor,r);
+          drawArrow(ctx,sxc,syc,rxc,ryc,arrowColor,r);
         }
 
         // student bubble
@@ -1075,6 +1074,24 @@ async function generateSelectedPDF(){
   }
 
   doc.save('imaging-modalities-charts.pdf');
+  // Try "Save As" dialog (Chrome/Edge only), fallback to normal download
+  try {
+    const pdfBytes = doc.output('arraybuffer');
+    if(window.showSaveFilePicker){
+      const fh = await window.showSaveFilePicker({
+        suggestedName:'imaging-modalities-charts.pdf',
+        types:[{description:'PDF Document',accept:{'application/pdf':['.pdf']}}]
+      });
+      const writable = await fh.createWritable();
+      await writable.write(pdfBytes);
+      await writable.close();
+    } else {
+      // Fallback: normal download
+      doc.save('imaging-modalities-charts.pdf');
+    }
+  } catch(e){
+    if(e.name!=='AbortError') doc.save('imaging-modalities-charts.pdf');
+  }
   prog.style.display='none';
   btn.disabled=false;btn.textContent='⬇ Generate PDF';
   closePDFModal();
@@ -1195,9 +1212,10 @@ function renderPDFPage(canvas,xKey,yKey,mode,xA,yA){
         const thr=((1/9)*Math.min(cw,ch))*0.55;
         const same=dist<thr;
         if(!same&&dist>R*2){
-          const angle=Math.atan2(syc-ryc,sxc-rxc);
-          const sx=rxc+Math.cos(angle)*R,sy=ryc+Math.sin(angle)*R;
-          const ex=sxc-Math.cos(angle)*R,ey=syc-Math.sin(angle)*R;
+          // arrow from student → reference
+          const angle=Math.atan2(ryc-syc,rxc-sxc);
+          const sx=sxc+Math.cos(angle)*R,sy=syc+Math.sin(angle)*R;
+          const ex=rxc-Math.cos(angle)*R,ey=ryc-Math.sin(angle)*R;
           ctx.save();ctx.strokeStyle='#ff7040';ctx.fillStyle='#ff7040';
           ctx.lineWidth=3;ctx.globalAlpha=0.9;
           ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
