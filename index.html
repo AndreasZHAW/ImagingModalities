@@ -248,6 +248,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
         <select id="bS" class="ax-sel" style="color:var(--muted)" onchange="drawChart()">
           <option value="none">uniform</option>
         </select>
+        <button onclick="openPDFModal()" id="pdfBtn" style="margin-left:auto;padding:6px 12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:9px;cursor:pointer;white-space:nowrap;letter-spacing:.05em">⬇ PDF</button>
       </div>
       <div class="chart-wrap"><canvas id="mc"></canvas></div>
       <div class="leg" id="leg"></div>
@@ -314,8 +315,44 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 
   </div>
 </div>
+
+<!-- ════════════════ PDF SELECTION MODAL ════════════════ -->
+<div id="pdfModal" style="display:none;position:fixed;inset:0;background:rgba(4,8,14,.92);z-index:2000;overflow-y:auto;padding:16px">
+  <div style="max-width:540px;margin:0 auto;background:var(--surf2);border:1px solid var(--border);border-radius:16px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--gold);text-transform:uppercase">PDF Export — Select Charts</div>
+      <button onclick="closePDFModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      Each selected combination generates <b style="color:var(--text)">2 pages</b>: one with Reference data, one with the Comparison (arrows). A4 portrait.
+    </div>
+
+    <!-- Quick select buttons -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      <button onclick="pdfSelectAll()" style="padding:6px 12px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:6px;color:var(--cyan);font-family:var(--mono);font-size:9px;cursor:pointer">✓ All</button>
+      <button onclick="pdfSelectNone()" style="padding:6px 12px;background:rgba(255,64,96,.06);border:1px solid rgba(255,64,96,.2);border-radius:6px;color:#ff6080;font-family:var(--mono);font-size:9px;cursor:pointer">✕ None</button>
+      <button onclick="pdfSelectPreset()" style="padding:6px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:9px;cursor:pointer">★ 6 Key Pairs</button>
+    </div>
+
+    <!-- Pair grid — built by JS -->
+    <div id="pdfPairGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:16px;max-height:52vh;overflow-y:auto"></div>
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <div id="pdfSelCount" style="font-family:var(--mono);font-size:10px;color:var(--muted);flex:1">0 charts selected → 0 pages</div>
+      <button id="pdfGenBtn" onclick="generateSelectedPDF()" style="padding:12px 20px;background:var(--gold);border:none;border-radius:8px;color:#111;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer">⬇ Generate PDF</button>
+    </div>
+    <div id="pdfProgress" style="display:none;margin-top:12px">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px" id="pdfProgressTxt">Rendering…</div>
+      <div style="background:var(--surf);border-radius:4px;height:6px;overflow:hidden">
+        <div id="pdfProgressBar" style="height:100%;background:var(--gold);width:0%;transition:width .2s;border-radius:4px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ══════════════════════════════ DATA ══════════════════════════════
 const MODS=[
@@ -658,7 +695,7 @@ function drawChart(){
   const yKey=document.getElementById('bY').value;
   const sKey=document.getElementById('bS').value;
   const xA=AXES.find(a=>a.id===xKey),yA=AXES.find(a=>a.id===yKey);
-  const pL=62,pR=20,pT=26,pB=52;
+  const pL=72,pR=24,pT=28,pB=62;
   const cw=W-pL-pR,ch=H-pT-pB;
 
   ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
@@ -672,21 +709,38 @@ function drawChart(){
     ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
   }
 
-  // axis labels
-  ctx.font="600 11px 'IBM Plex Mono',monospace";ctx.textAlign='center';
-  ctx.fillStyle='#00d4ff';ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-8);
-  ctx.save();ctx.translate(13,pT+ch/2);ctx.rotate(-Math.PI/2);
-  ctx.fillStyle='#ff7040';ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
+  // axis labels — big, clearly readable
+  ctx.font="700 14px 'IBM Plex Mono',monospace";ctx.textAlign='center';
+  ctx.fillStyle='#00d4ff';
+  ctx.shadowColor='rgba(0,212,255,.4)';ctx.shadowBlur=8;
+  ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-10);
+  ctx.save();ctx.translate(16,pT+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#ff7040';ctx.shadowColor='rgba(255,112,64,.4)';ctx.shadowBlur=8;
+  ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
+  ctx.shadowBlur=0;
+
+  // scale end labels
+  if(xA){
+    ctx.font="400 10px 'IBM Plex Mono',monospace";ctx.fillStyle='#6080a0';
+    ctx.textAlign='left'; ctx.fillText(xA.ends[0],pL,pT+ch+28);
+    ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+28);
+  }
+  if(yA){
+    ctx.font="400 10px 'IBM Plex Mono',monospace";ctx.fillStyle='#6080a0';
+    ctx.save();
+    ctx.translate(pL-36,pT+ch);ctx.rotate(-Math.PI/2);
+    ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
+    ctx.save();
+    ctx.translate(pL-36,pT);ctx.rotate(-Math.PI/2);
+    ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
+  }
 
   // ticks
-  ctx.font="400 9px 'IBM Plex Mono',monospace";ctx.fillStyle='#2a3f58';
+  ctx.font="400 10px 'IBM Plex Mono',monospace";ctx.fillStyle='#3a5878';
   for(let i=1;i<=10;i++){
-    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+13);
-    ctx.textAlign='right';ctx.fillText(i,pL-5,pT+ch-((i-1)/9)*ch+3);
+    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+14);
+    ctx.textAlign='right'; ctx.fillText(i,pL-7,pT+ch-((i-1)/9)*ch+4);
   }
-  if(xA){ctx.font="400 9px 'IBM Plex Mono',monospace";ctx.fillStyle='#3a5570';
-    ctx.textAlign='left';ctx.fillText(xA.ends[0],pL,pT+ch+27);
-    ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+27);}
 
   let count=0;
 
@@ -900,6 +954,300 @@ function showToast(msg,type='ok'){
   t.className=`toast ${type} show`;clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.className=`toast ${type}`,2500);
 }
+// ════════════════════════ PDF EXPORT ═════════════════════════════
+
+const PDF_PRESETS=[['res','pen'],['res','inv'],['pen','inv'],['live','res'],['spec','cost'],['tres','live']];
+let pdfSelected=new Set();
+
+function openPDFModal(){
+  buildPDFPairGrid();
+  document.getElementById('pdfModal').style.display='block';
+}
+function closePDFModal(){
+  document.getElementById('pdfModal').style.display='none';
+}
+
+function buildPDFPairGrid(){
+  const grid=document.getElementById('pdfPairGrid');
+  grid.innerHTML='';
+  // all unique ordered pairs where x!=y
+  for(let i=0;i<AXES.length;i++){
+    for(let j=0;j<AXES.length;j++){
+      if(i===j)continue;
+      const key=AXES[i].id+'|'+AXES[j].id;
+      const sel=pdfSelected.has(key);
+      const el=document.createElement('div');
+      el.id='pdfp_'+key.replace('|','_');
+      el.style.cssText=`background:${sel?'rgba(251,191,36,.1)':'var(--surf)'};border:1px solid ${sel?'rgba(251,191,36,.4)':'var(--border)'};border-radius:7px;padding:8px 10px;cursor:pointer;transition:all .15s`;
+      el.innerHTML=`<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:2px">X · Y</div>
+        <div style="font-size:11px;color:${sel?'var(--gold)':'var(--text)'}">
+          <span style="color:var(--cyan)">${AXES[i].short}</span>
+          <span style="color:var(--muted)"> × </span>
+          <span style="color:var(--orange)">${AXES[j].short}</span>
+        </div>`;
+      el.onclick=()=>togglePdfPair(key);
+      grid.appendChild(el);
+    }
+  }
+  updatePdfCount();
+}
+
+function togglePdfPair(key){
+  if(pdfSelected.has(key))pdfSelected.delete(key);
+  else pdfSelected.add(key);
+  const el=document.getElementById('pdfp_'+key.replace('|','_'));
+  if(el){
+    const sel=pdfSelected.has(key);
+    el.style.background=sel?'rgba(251,191,36,.1)':'var(--surf)';
+    el.style.borderColor=sel?'rgba(251,191,36,.4)':'var(--border)';
+    el.querySelector('div:last-child').style.color=sel?'var(--gold)':'var(--text)';
+  }
+  updatePdfCount();
+}
+
+function pdfSelectAll(){
+  for(let i=0;i<AXES.length;i++)for(let j=0;j<AXES.length;j++)
+    if(i!==j)pdfSelected.add(AXES[i].id+'|'+AXES[j].id);
+  buildPDFPairGrid();
+}
+function pdfSelectNone(){pdfSelected.clear();buildPDFPairGrid();}
+function pdfSelectPreset(){
+  pdfSelected.clear();
+  PDF_PRESETS.forEach(([a,b])=>{pdfSelected.add(a+'|'+b);});
+  buildPDFPairGrid();
+}
+function updatePdfCount(){
+  const n=pdfSelected.size;
+  document.getElementById('pdfSelCount').textContent=`${n} combination${n!==1?'s':''} → ${n*2} pages`;
+}
+
+async function generateSelectedPDF(){
+  if(pdfSelected.size===0){showToast('Select at least one axis combination.','err');return;}
+  const btn=document.getElementById('pdfGenBtn');
+  btn.disabled=true;btn.textContent='Working…';
+  const prog=document.getElementById('pdfProgress');
+  const progTxt=document.getElementById('pdfProgressTxt');
+  const progBar=document.getElementById('pdfProgressBar');
+  prog.style.display='block';
+
+  const {jsPDF}=window.jspdf;
+  // A4 portrait: 210 × 297 mm
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210,PH=297;
+
+  // Offscreen canvas — tall for portrait, high DPI
+  const offCanvas=document.createElement('canvas');
+  offCanvas.width=900;offCanvas.height=1100;
+
+  const pairs=[...pdfSelected];
+  let done=0;
+
+  for(let p=0;p<pairs.length;p++){
+    const [xId,yId]=pairs[p].split('|');
+    const xA=AXES.find(a=>a.id===xId),yA=AXES.find(a=>a.id===yId);
+
+    // ── Page 1: Reference ──
+    if(p>0||true) { if(p>0) doc.addPage(); }
+    renderPDFPage(offCanvas,xId,yId,'ref',xA,yA,1,pairs.length*2,p*2+1);
+    const imgRef=offCanvas.toDataURL('image/png');
+    doc.setFillColor(8,12,18);doc.rect(0,0,PW,PH,'F');
+    doc.addImage(imgRef,'PNG',8,22,PW-16,PH-40);
+    // page header
+    addPDFHeader(doc,xA,yA,'ref',p*2+1,pairs.length*2,PW);
+    addPDFFooter(doc,'🔬 Reference Data — research-accurate values from literature',PW,PH);
+
+    done++;progBar.style.width=`${(done/(pairs.length*2))*100}%`;
+    progTxt.textContent=`Rendering page ${done} of ${pairs.length*2}…`;
+    await new Promise(r=>setTimeout(r,0));
+
+    // ── Page 2: Comparison ──
+    doc.addPage();
+    renderPDFPage(offCanvas,xId,yId,'diff',xA,yA,2,pairs.length*2,p*2+2);
+    const imgDiff=offCanvas.toDataURL('image/png');
+    doc.setFillColor(8,12,18);doc.rect(0,0,PW,PH,'F');
+    doc.addImage(imgDiff,'PNG',8,22,PW-16,PH-40);
+    addPDFHeader(doc,xA,yA,'diff',p*2+2,pairs.length*2,PW);
+    addPDFFooter(doc,'↕ Comparison — arrows show student vs. reference deviation',PW,PH);
+
+    done++;progBar.style.width=`${(done/(pairs.length*2))*100}%`;
+    progTxt.textContent=`Rendering page ${done} of ${pairs.length*2}…`;
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  doc.save('imaging-modalities-charts.pdf');
+  prog.style.display='none';
+  btn.disabled=false;btn.textContent='⬇ Generate PDF';
+  closePDFModal();
+  showToast(`✓ PDF with ${pairs.length*2} pages downloaded!`,'ok');
+}
+
+function addPDFHeader(doc,xA,yA,mode,page,total,PW){
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.setTextColor(74,96,128);
+  doc.text('Imaging Modalities · Life Sciences',8,7);
+  doc.text(`Page ${page} / ${total}`,PW-8,7,{align:'right'});
+  doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.setTextColor(0,212,255);
+  doc.text(xA.label,8,15);
+  doc.setTextColor(255,112,64);
+  doc.text(yA.label,PW-8,15,{align:'right'});
+  doc.setTextColor(mode==='ref'?251:255,mode==='ref'?191:112,mode==='ref'?36:64);
+  doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text(mode==='ref'?'REFERENCE':'COMPARISON',PW/2,15,{align:'center'});
+}
+
+function addPDFFooter(doc,text,PW,PH){
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.setTextColor(74,96,128);
+  doc.text(text,PW/2,PH-4,{align:'center'});
+  // diff legend
+  if(text.includes('arrow')){
+    doc.setTextColor(0,230,118);doc.text('● = student matches reference',8,PH-8);
+    doc.setTextColor(255,112,64);doc.text('→ = arrow shows deviation',PW/2,PH-8);
+  }
+}
+
+function renderPDFPage(canvas,xKey,yKey,mode,xA,yA){
+  const W=canvas.width,H=canvas.height;
+  const ctx=canvas.getContext('2d');
+  const pL=100,pR=28,pT=40,pB=90;
+  const cw=W-pL-pR,ch=H-pT-pB;
+
+  ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
+
+  // grid
+  for(let i=0;i<=10;i++){
+    const x=pL+(i/10)*cw,y=pT+(i/10)*ch;
+    ctx.strokeStyle=(i===0||i===10)?'rgba(0,212,255,.2)':'rgba(0,212,255,.055)';
+    ctx.lineWidth=i===0||i===10?1.5:1;
+    ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+ch);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
+  }
+
+  // big axis labels
+  ctx.font="700 22px 'IBM Plex Mono',monospace";ctx.textAlign='center';
+  ctx.fillStyle='#00d4ff';ctx.shadowColor='rgba(0,212,255,.5)';ctx.shadowBlur=14;
+  ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-18);
+  ctx.save();ctx.translate(26,pT+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#ff7040';ctx.shadowColor='rgba(255,112,64,.5)';ctx.shadowBlur=14;
+  ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
+  ctx.shadowBlur=0;
+
+  // end labels
+  ctx.font="500 13px 'IBM Plex Mono',monospace";ctx.fillStyle='#5a7898';
+  ctx.textAlign='left'; ctx.fillText(xA?xA.ends[0]:'1',pL,H-44);
+  ctx.textAlign='right';ctx.fillText(xA?xA.ends[1]:'10',pL+cw,H-44);
+  ctx.save();ctx.translate(pL-58,pT+ch);ctx.rotate(-Math.PI/2);
+  ctx.textAlign='left';ctx.fillText(yA?yA.ends[0]:'1',0,0);ctx.restore();
+  ctx.save();ctx.translate(pL-58,pT);ctx.rotate(-Math.PI/2);
+  ctx.textAlign='right';ctx.fillText(yA?yA.ends[1]:'10',0,0);ctx.restore();
+
+  // ticks
+  ctx.font="400 12px 'IBM Plex Mono',monospace";ctx.fillStyle='#3a5878';
+  for(let i=1;i<=10;i++){
+    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+18);
+    ctx.textAlign='right'; ctx.fillText(i,pL-9,pT+ch-((i-1)/9)*ch+5);
+  }
+
+  const R=24;
+
+  if(mode==='ref'){
+    MODS.forEach(mod=>{
+      const d=REF[mod.id];if(!d)return;
+      const xv=d[xKey]||5,yv=d[yKey]||5;
+      const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch;
+      // glow
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*2.5);
+      g.addColorStop(0,mod.color+'44');g.addColorStop(1,mod.color+'00');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R*2.5,0,Math.PI*2);ctx.fill();
+      // bubble
+      const gf=ctx.createRadialGradient(cx-R*.3,cy-R*.3,0,cx,cy,R);
+      gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
+      ctx.fillStyle=gf;ctx.strokeStyle=mod.color;ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#060a10';ctx.font="700 12px 'IBM Plex Mono',monospace";
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
+    });
+
+    // legend at bottom
+    drawPDFLegend(ctx,W,H,pT,pB);
+
+  } else {
+    // diff mode
+    MODS.forEach(mod=>{
+      const stu=liveData[mod.id],ref=REF[mod.id];if(!ref)return;
+      const rxv=ref[xKey]||5,ryv=ref[yKey]||5;
+      const rxc=pL+((rxv-1)/9)*cw,ryc=pT+ch-((ryv-1)/9)*ch;
+      // dashed ref circle
+      ctx.save();ctx.strokeStyle=mod.color+'55';ctx.lineWidth=2;
+      ctx.setLineDash([5,4]);
+      ctx.beginPath();ctx.arc(rxc,ryc,R,0,Math.PI*2);ctx.stroke();
+      ctx.setLineDash([]);ctx.restore();
+      ctx.fillStyle=mod.color+'66';ctx.font="600 10px 'IBM Plex Mono',monospace";
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(mod.abbr,rxc,ryc);ctx.textBaseline='alphabetic';
+
+      if(stu){
+        const sxv=stu[xKey]||5,syv=stu[yKey]||5;
+        const sxc=pL+((sxv-1)/9)*cw,syc=pT+ch-((syv-1)/9)*ch;
+        const dist=Math.sqrt((sxc-rxc)**2+(syc-ryc)**2);
+        const thr=((1/9)*Math.min(cw,ch))*0.55;
+        const same=dist<thr;
+        if(!same&&dist>R*2){
+          const angle=Math.atan2(syc-ryc,sxc-rxc);
+          const sx=rxc+Math.cos(angle)*R,sy=ryc+Math.sin(angle)*R;
+          const ex=sxc-Math.cos(angle)*R,ey=syc-Math.sin(angle)*R;
+          ctx.save();ctx.strokeStyle='#ff7040';ctx.fillStyle='#ff7040';
+          ctx.lineWidth=3;ctx.globalAlpha=0.9;
+          ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+          const hl=14;const ang=Math.atan2(ey-sy,ex-sx);
+          ctx.beginPath();ctx.moveTo(ex,ey);
+          ctx.lineTo(ex-hl*Math.cos(ang-0.4),ey-hl*Math.sin(ang-0.4));
+          ctx.lineTo(ex-hl*Math.cos(ang+0.4),ey-hl*Math.sin(ang+0.4));
+          ctx.closePath();ctx.fill();ctx.globalAlpha=1;ctx.restore();
+        }
+        const gf=ctx.createRadialGradient(sxc-R*.3,syc-R*.3,0,sxc,syc,R);
+        gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
+        ctx.fillStyle=gf;ctx.strokeStyle=same?'#00e676':mod.color;ctx.lineWidth=same?3.5:2;
+        ctx.beginPath();ctx.arc(sxc,syc,R,0,Math.PI*2);ctx.fill();ctx.stroke();
+        ctx.fillStyle='#060a10';ctx.font="700 12px 'IBM Plex Mono',monospace";
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(mod.abbr,sxc,syc);ctx.textBaseline='alphabetic';
+      }
+    });
+
+    // diff footer legend on canvas
+    const ly=H-14;
+    ctx.font="600 13px 'IBM Plex Sans',sans-serif";
+    ctx.fillStyle='#00e676';ctx.textAlign='left';ctx.fillText('● green border = matches reference',pL,ly);
+    ctx.fillStyle='#ff7040';ctx.fillText('   → orange arrow = deviation',pL+420,ly);
+    ctx.fillStyle=MODS[0].color+'55';
+    ctx.font="400 12px 'IBM Plex Mono',monospace";
+    ctx.setLineDash&&(ctx.setLineDash([4,3]));
+    // small dashed circle icon
+    ctx.strokeStyle='#aabbcc55';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(pL-18,ly-5,7,0,Math.PI*2);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#8899aa';ctx.fillText('= reference position',pL+700,ly);
+
+    drawPDFLegend(ctx,W,H,pT,pB);
+  }
+}
+
+function drawPDFLegend(ctx,W,H,pT,pB){
+  // compact modality colour key at right side
+  const startY=pT;const lineH=24;const x=W-80;
+  ctx.font="500 10px 'IBM Plex Sans',sans-serif";
+  MODS.forEach((mod,i)=>{
+    const y=startY+i*lineH;
+    ctx.fillStyle=mod.color;
+    ctx.beginPath();ctx.arc(x-10,y-4,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=mod.color+'cc';ctx.textAlign='left';
+    ctx.fillText(mod.abbr,x,y-1);
+  });
+}
+
 function showSErr(msg){const e=document.getElementById('sErr');e.textContent=msg;e.style.display='block';}
 </script>
 </body>
