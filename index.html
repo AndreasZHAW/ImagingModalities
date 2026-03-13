@@ -1036,7 +1036,7 @@ async function generateSelectedPDF(){
 
   // Offscreen canvas — tall for portrait, high DPI
   const offCanvas=document.createElement('canvas');
-  offCanvas.width=900;offCanvas.height=1100;
+  offCanvas.width=960;offCanvas.height=1300;
 
   const pairs=[...pdfSelected];
   let done=0;
@@ -1053,7 +1053,7 @@ async function generateSelectedPDF(){
     doc.addImage(imgRef,'PNG',8,22,PW-16,PH-40);
     // page header
     addPDFHeader(doc,xA,yA,'ref',p*2+1,pairs.length*2,PW);
-    addPDFFooter(doc,'🔬 Reference Data — research-accurate values from literature',PW,PH);
+    addPDFFooter(doc,'ref',PW,PH);
 
     done++;progBar.style.width=`${(done/(pairs.length*2))*100}%`;
     progTxt.textContent=`Rendering page ${done} of ${pairs.length*2}…`;
@@ -1066,7 +1066,7 @@ async function generateSelectedPDF(){
     doc.setFillColor(8,12,18);doc.rect(0,0,PW,PH,'F');
     doc.addImage(imgDiff,'PNG',8,22,PW-16,PH-40);
     addPDFHeader(doc,xA,yA,'diff',p*2+2,pairs.length*2,PW);
-    addPDFFooter(doc,'↕ Comparison — arrows show student vs. reference deviation',PW,PH);
+    addPDFFooter(doc,'diff',PW,PH);
 
     done++;progBar.style.width=`${(done/(pairs.length*2))*100}%`;
     progTxt.textContent=`Rendering page ${done} of ${pairs.length*2}…`;
@@ -1099,109 +1099,132 @@ async function generateSelectedPDF(){
 }
 
 function addPDFHeader(doc,xA,yA,mode,page,total,PW){
-  doc.setFontSize(7);doc.setFont('helvetica','normal');
-  doc.setTextColor(74,96,128);
-  doc.text('Imaging Modalities · Life Sciences',8,7);
-  doc.text(`Page ${page} / ${total}`,PW-8,7,{align:'right'});
-  doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.setTextColor(0,212,255);
-  doc.text(xA.label,8,15);
-  doc.setTextColor(255,112,64);
-  doc.text(yA.label,PW-8,15,{align:'right'});
-  doc.setTextColor(mode==='ref'?251:255,mode==='ref'?191:112,mode==='ref'?36:64);
+  // Top rule
+  doc.setDrawColor(28,45,66);doc.setLineWidth(0.3);
+  doc.line(10,18,PW-10,18);
+  // Course title left
   doc.setFontSize(8);doc.setFont('helvetica','bold');
-  doc.text(mode==='ref'?'REFERENCE':'COMPARISON',PW/2,15,{align:'center'});
+  doc.setTextColor(200,220,240);
+  doc.text('Imaging for the Life Sciences  CO4',10,14);
+  // Page number right
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.setTextColor(74,96,128);
+  doc.text(`${page} / ${total}`,PW-10,14,{align:'right'});
+  // Mode badge centre
+  const modeLabel=mode==='ref'?'Reference Data':'Comparison: Student vs. Reference';
+  const modeColor=mode==='ref'?[251,191,36]:[255,112,64];
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');
+  doc.setTextColor(...modeColor);
+  doc.text(modeLabel,PW/2,14,{align:'center'});
 }
 
-function addPDFFooter(doc,text,PW,PH){
+function addPDFFooter(doc,mode,PW,PH){
+  doc.setDrawColor(28,45,66);doc.setLineWidth(0.3);
+  doc.line(10,PH-14,PW-10,PH-14);
   doc.setFontSize(7);doc.setFont('helvetica','normal');
   doc.setTextColor(74,96,128);
-  doc.text(text,PW/2,PH-4,{align:'center'});
-  // diff legend
-  if(text.includes('arrow')){
-    doc.setTextColor(0,230,118);doc.text('● = student matches reference',8,PH-8);
-    doc.setTextColor(255,112,64);doc.text('→ = arrow shows deviation',PW/2,PH-8);
+  if(mode==='diff'){
+    doc.setTextColor(0,200,100); doc.text('● green border = student matches reference',10,PH-10);
+    doc.setTextColor(255,112,64);doc.text('→ orange arrow = deviation (student → reference)',10,PH-6);
+    doc.setTextColor(130,150,180);doc.text('○  dashed circle = reference position',PW/2+5,PH-10);
+  } else {
+    doc.setTextColor(74,96,128);
+    doc.text('Research-accurate reference values from peer-reviewed literature.',PW/2,PH-8,{align:'center'});
   }
 }
 
 function renderPDFPage(canvas,xKey,yKey,mode,xA,yA){
   const W=canvas.width,H=canvas.height;
   const ctx=canvas.getContext('2d');
-  const pL=100,pR=28,pT=40,pB=90;
-  const cw=W-pL-pR,ch=H-pT-pB;
 
-  ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
+  // Layout: chart area + right legend panel
+  const LEG_W=130; // legend panel width px
+  const pL=110, pR=LEG_W+20, pT=50, pB=100;
+  const cw=W-pL-pR, ch=H-pT-pB;
 
-  // grid
+  // ── Background ──
+  ctx.fillStyle='#080c12';ctx.fillRect(0,0,W,H);
+
+  // Legend panel background
+  ctx.fillStyle='#0d1420';
+  ctx.fillRect(W-LEG_W-10,pT-10,LEG_W+10,ch+20);
+  ctx.strokeStyle='#1c2d42';ctx.lineWidth=1;
+  ctx.strokeRect(W-LEG_W-10,pT-10,LEG_W+10,ch+20);
+
+  // ── Grid ──
   for(let i=0;i<=10;i++){
-    const x=pL+(i/10)*cw,y=pT+(i/10)*ch;
-    ctx.strokeStyle=(i===0||i===10)?'rgba(0,212,255,.2)':'rgba(0,212,255,.055)';
-    ctx.lineWidth=i===0||i===10?1.5:1;
+    const x=pL+(i/10)*cw, y=pT+(i/10)*ch;
+    ctx.strokeStyle=(i===0||i===10)?'rgba(0,212,255,.22)':'rgba(0,212,255,.055)';
+    ctx.lineWidth=(i===0||i===10)?1.5:0.8;
     ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+ch);ctx.stroke();
     ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
   }
 
-  // big axis labels
-  ctx.font="700 22px 'IBM Plex Mono',monospace";ctx.textAlign='center';
-  ctx.fillStyle='#00d4ff';ctx.shadowColor='rgba(0,212,255,.5)';ctx.shadowBlur=14;
-  ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-18);
-  ctx.save();ctx.translate(26,pT+ch/2);ctx.rotate(-Math.PI/2);
-  ctx.fillStyle='#ff7040';ctx.shadowColor='rgba(255,112,64,.5)';ctx.shadowBlur=14;
-  ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
-  ctx.shadowBlur=0;
-
-  // end labels
-  ctx.font="500 13px 'IBM Plex Mono',monospace";ctx.fillStyle='#5a7898';
-  ctx.textAlign='left'; ctx.fillText(xA?xA.ends[0]:'1',pL,H-44);
-  ctx.textAlign='right';ctx.fillText(xA?xA.ends[1]:'10',pL+cw,H-44);
-  ctx.save();ctx.translate(pL-58,pT+ch);ctx.rotate(-Math.PI/2);
-  ctx.textAlign='left';ctx.fillText(yA?yA.ends[0]:'1',0,0);ctx.restore();
-  ctx.save();ctx.translate(pL-58,pT);ctx.rotate(-Math.PI/2);
-  ctx.textAlign='right';ctx.fillText(yA?yA.ends[1]:'10',0,0);ctx.restore();
-
-  // ticks
-  ctx.font="400 12px 'IBM Plex Mono',monospace";ctx.fillStyle='#3a5878';
+  // ── Tick numbers ──
+  ctx.font="500 14px 'IBM Plex Mono',monospace";
+  ctx.fillStyle='#6888a8';
   for(let i=1;i<=10;i++){
-    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+18);
-    ctx.textAlign='right'; ctx.fillText(i,pL-9,pT+ch-((i-1)/9)*ch+5);
+    ctx.textAlign='center';
+    ctx.fillText(i, pL+((i-1)/9)*cw, pT+ch+22);
+    ctx.textAlign='right';
+    ctx.fillText(i, pL-10, pT+ch-((i-1)/9)*ch+5);
   }
 
-  const R=24;
+  // ── Axis titles ──
+  // X axis title
+  ctx.font="700 20px 'IBM Plex Sans',sans-serif";
+  ctx.fillStyle='#00d4ff';ctx.textAlign='center';
+  ctx.shadowColor='rgba(0,212,255,.6)';ctx.shadowBlur=16;
+  ctx.fillText(xA?xA.label:xKey, pL+cw/2, H-pB+62);
+  ctx.shadowBlur=0;
 
+  // Y axis title (rotated)
+  ctx.save();
+  ctx.translate(28, pT+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.font="700 20px 'IBM Plex Sans',sans-serif";
+  ctx.fillStyle='#ff7040';ctx.textAlign='center';
+  ctx.shadowColor='rgba(255,112,64,.6)';ctx.shadowBlur=16;
+  ctx.fillText(yA?yA.label:yKey, 0, 0);
+  ctx.shadowBlur=0;ctx.restore();
+
+  // ── Scale end labels ── (below x-ticks and beside y-ticks, no overlap)
+  ctx.font="italic 13px 'IBM Plex Sans',sans-serif";
+  ctx.fillStyle='#7a98b8';
+  // X ends: below tick row
+  if(xA){
+    ctx.textAlign='left'; ctx.fillText(xA.ends[0], pL, pT+ch+42);
+    ctx.textAlign='right';ctx.fillText(xA.ends[1], pL+cw, pT+ch+42);
+  }
+  // Y ends: rotated, beside tick numbers
+  if(yA){
+    ctx.save();ctx.translate(pL-68,pT+ch);ctx.rotate(-Math.PI/2);
+    ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
+    ctx.save();ctx.translate(pL-68,pT);ctx.rotate(-Math.PI/2);
+    ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
+  }
+
+  const R=22;
+
+  // ── Bubbles ──
   if(mode==='ref'){
     MODS.forEach(mod=>{
       const d=REF[mod.id];if(!d)return;
       const xv=d[xKey]||5,yv=d[yKey]||5;
-      const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch;
-      // glow
-      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*2.5);
-      g.addColorStop(0,mod.color+'44');g.addColorStop(1,mod.color+'00');
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R*2.5,0,Math.PI*2);ctx.fill();
-      // bubble
-      const gf=ctx.createRadialGradient(cx-R*.3,cy-R*.3,0,cx,cy,R);
-      gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
-      ctx.fillStyle=gf;ctx.strokeStyle=mod.color;ctx.lineWidth=2;
-      ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();ctx.stroke();
-      ctx.fillStyle='#060a10';ctx.font="700 12px 'IBM Plex Mono',monospace";
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
+      drawPDFBubble(ctx,mod,xv,yv,R,pL,pT,cw,ch,null);
     });
-
-    // legend at bottom
-    drawPDFLegend(ctx,W,H,pT,pB);
-
   } else {
-    // diff mode
     MODS.forEach(mod=>{
       const stu=liveData[mod.id],ref=REF[mod.id];if(!ref)return;
       const rxv=ref[xKey]||5,ryv=ref[yKey]||5;
       const rxc=pL+((rxv-1)/9)*cw,ryc=pT+ch-((ryv-1)/9)*ch;
-      // dashed ref circle
+
+      // dashed reference circle
       ctx.save();ctx.strokeStyle=mod.color+'55';ctx.lineWidth=2;
       ctx.setLineDash([5,4]);
       ctx.beginPath();ctx.arc(rxc,ryc,R,0,Math.PI*2);ctx.stroke();
       ctx.setLineDash([]);ctx.restore();
-      ctx.fillStyle=mod.color+'66';ctx.font="600 10px 'IBM Plex Mono',monospace";
+      ctx.fillStyle=mod.color+'70';
+      ctx.font="600 11px 'IBM Plex Mono',monospace";
       ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(mod.abbr,rxc,ryc);ctx.textBaseline='alphabetic';
 
@@ -1211,59 +1234,76 @@ function renderPDFPage(canvas,xKey,yKey,mode,xA,yA){
         const dist=Math.sqrt((sxc-rxc)**2+(syc-ryc)**2);
         const thr=((1/9)*Math.min(cw,ch))*0.55;
         const same=dist<thr;
-        if(!same&&dist>R*2){
-          // arrow from student → reference
+
+        if(!same&&dist>R*2+4){
+          // arrow: student → reference
           const angle=Math.atan2(ryc-syc,rxc-sxc);
-          const sx=sxc+Math.cos(angle)*R,sy=syc+Math.sin(angle)*R;
-          const ex=rxc-Math.cos(angle)*R,ey=ryc-Math.sin(angle)*R;
-          ctx.save();ctx.strokeStyle='#ff7040';ctx.fillStyle='#ff7040';
-          ctx.lineWidth=3;ctx.globalAlpha=0.9;
+          const sx=sxc+Math.cos(angle)*(R+2),sy=syc+Math.sin(angle)*(R+2);
+          const ex=rxc-Math.cos(angle)*(R+2),ey=ryc-Math.sin(angle)*(R+2);
+          ctx.save();
+          ctx.strokeStyle='#ff7040';ctx.fillStyle='#ff7040';
+          ctx.lineWidth=2.5;ctx.globalAlpha=0.88;
           ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
-          const hl=14;const ang=Math.atan2(ey-sy,ex-sx);
+          const hl=13,ang=Math.atan2(ey-sy,ex-sx);
           ctx.beginPath();ctx.moveTo(ex,ey);
-          ctx.lineTo(ex-hl*Math.cos(ang-0.4),ey-hl*Math.sin(ang-0.4));
-          ctx.lineTo(ex-hl*Math.cos(ang+0.4),ey-hl*Math.sin(ang+0.4));
+          ctx.lineTo(ex-hl*Math.cos(ang-0.38),ey-hl*Math.sin(ang-0.38));
+          ctx.lineTo(ex-hl*Math.cos(ang+0.38),ey-hl*Math.sin(ang+0.38));
           ctx.closePath();ctx.fill();ctx.globalAlpha=1;ctx.restore();
         }
-        const gf=ctx.createRadialGradient(sxc-R*.3,syc-R*.3,0,sxc,syc,R);
-        gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
-        ctx.fillStyle=gf;ctx.strokeStyle=same?'#00e676':mod.color;ctx.lineWidth=same?3.5:2;
-        ctx.beginPath();ctx.arc(sxc,syc,R,0,Math.PI*2);ctx.fill();ctx.stroke();
-        ctx.fillStyle='#060a10';ctx.font="700 12px 'IBM Plex Mono',monospace";
-        ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(mod.abbr,sxc,syc);ctx.textBaseline='alphabetic';
+        drawPDFBubble(ctx,mod,sxv,syv,R,pL,pT,cw,ch,same?'#00e676':null);
       }
     });
-
-    // diff footer legend on canvas
-    const ly=H-14;
-    ctx.font="600 13px 'IBM Plex Sans',sans-serif";
-    ctx.fillStyle='#00e676';ctx.textAlign='left';ctx.fillText('● green border = matches reference',pL,ly);
-    ctx.fillStyle='#ff7040';ctx.fillText('   → orange arrow = deviation',pL+420,ly);
-    ctx.fillStyle=MODS[0].color+'55';
-    ctx.font="400 12px 'IBM Plex Mono',monospace";
-    ctx.setLineDash&&(ctx.setLineDash([4,3]));
-    // small dashed circle icon
-    ctx.strokeStyle='#aabbcc55';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(pL-18,ly-5,7,0,Math.PI*2);ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle='#8899aa';ctx.fillText('= reference position',pL+700,ly);
-
-    drawPDFLegend(ctx,W,H,pT,pB);
   }
+
+  // ── Right legend panel ──
+  const lx=W-LEG_W+8;
+  let ly=pT+2;
+  ctx.font="600 11px 'IBM Plex Sans',sans-serif";
+  ctx.fillStyle='#4a6080';ctx.textAlign='left';
+  ctx.fillText('MODALITIES',lx,ly);ly+=18;
+
+  // group headers + entries
+  GRPS.forEach(grp=>{
+    const mods=MODS.filter(m=>m.group===grp.id);
+    // group separator line
+    ctx.strokeStyle='#1c2d42';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(lx,ly+2);ctx.lineTo(W-12,ly+2);ctx.stroke();
+    ctx.fillStyle='#3a5570';
+    ctx.font="500 9px 'IBM Plex Sans',sans-serif";
+    ctx.fillText(grp.label.toUpperCase(),lx,ly+12);ly+=16;
+
+    mods.forEach(mod=>{
+      ctx.fillStyle=mod.color;
+      ctx.beginPath();ctx.arc(lx+5,ly-3,5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#c8d8e8';
+      ctx.font="500 11px 'IBM Plex Sans',sans-serif";
+      ctx.fillText(mod.abbr,lx+14,ly);
+      ctx.fillStyle='#4a6080';
+      ctx.font="400 9px 'IBM Plex Sans',sans-serif";
+      // short name
+      const shortName=mod.name.replace('Microscopy','Mic.').replace('Tomography','Tom.').replace('Imaging','Im.');
+      ctx.fillText(shortName.length>16?shortName.slice(0,15)+'…':shortName,lx+14,ly+10);
+      ly+=22;
+    });
+    ly+=4;
+  });
 }
 
-function drawPDFLegend(ctx,W,H,pT,pB){
-  // compact modality colour key at right side
-  const startY=pT;const lineH=24;const x=W-80;
-  ctx.font="500 10px 'IBM Plex Sans',sans-serif";
-  MODS.forEach((mod,i)=>{
-    const y=startY+i*lineH;
-    ctx.fillStyle=mod.color;
-    ctx.beginPath();ctx.arc(x-10,y-4,5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=mod.color+'cc';ctx.textAlign='left';
-    ctx.fillText(mod.abbr,x,y-1);
-  });
+function drawPDFBubble(ctx,mod,xv,yv,R,pL,pT,cw,ch,overrideStroke){
+  const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch;
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*2.2);
+  g.addColorStop(0,mod.color+'33');g.addColorStop(1,mod.color+'00');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R*2.2,0,Math.PI*2);ctx.fill();
+  const gf=ctx.createRadialGradient(cx-R*.3,cy-R*.3,0,cx,cy,R);
+  gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
+  ctx.fillStyle=gf;
+  ctx.strokeStyle=overrideStroke||mod.color;
+  ctx.lineWidth=overrideStroke?3:1.8;
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#050d18';
+  ctx.font="700 11px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
 }
 
 function showSErr(msg){const e=document.getElementById('sErr');e.textContent=msg;e.style.display='block';}
