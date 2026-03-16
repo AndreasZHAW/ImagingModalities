@@ -252,6 +252,13 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
       </div>
       <div class="chart-wrap"><canvas id="mc"></canvas></div>
       <div class="leg" id="leg"></div>
+
+      <!-- Extra modalities toggle + legend — only shown in ref mode -->
+      <div id="extraModBar" style="display:none;flex-shrink:0;border-top:1px solid var(--border);padding:6px 14px;display:flex;align-items:center;gap:10px;background:var(--surf)">
+        <button id="extraTogBtn" onclick="toggleExtraMods()" style="padding:5px 12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:9px;cursor:pointer;white-space:nowrap;flex-shrink:0">＋ Show Extra Modalities</button>
+        <div id="extraLegend" style="display:none;flex-wrap:wrap;gap:3px;flex:1;overflow:hidden"></div>
+      </div>
+
       <div class="live-bar">
         <span><span class="pulse"></span>Live · every 5 sec</span>
         <span id="syncTime">–</span>
@@ -428,7 +435,58 @@ const REF={
   LAP:   {res:2,pen:10,cost:7,scost:6,inv:8,prep:4,tput:3,tres:6,live:8,spec:3},
 };
 
-// ══════════════════════ GITHUB GIST BACKEND ══════════════════════
+// ── Extra modalities (reference-only, not in student activity) ──
+const EXTRA_MODS=[
+  // Microscopy additions
+  {id:'EM',    abbr:'EM',    name:'Electron Microscopy (general)',         color:'#818cf8',group:'xmicro'},
+  {id:'CCM',   abbr:'CCM',   name:'Confocal Microscopy',                   color:'#38bdf8',group:'xmicro'},
+  {id:'FLIM',  abbr:'FLIM',  name:'Fluorescence Lifetime Imaging',         color:'#e879f9',group:'xmicro'},
+  // Medical Imaging
+  {id:'CT',    abbr:'CT',    name:'Computed Tomography',                   color:'#facc15',group:'xmed'},
+  {id:'MRI',   abbr:'MRI',   name:'Magnetic Resonance Imaging',            color:'#4ade80',group:'xmed'},
+  {id:'DTI',   abbr:'DTI',   name:'Diffusion Tensor Imaging',              color:'#86efac',group:'xmed'},
+  {id:'fMRI',  abbr:'fMRI',  name:'Functional MRI',                        color:'#6ee7b7',group:'xmed'},
+  {id:'MRA',   abbr:'MRA',   name:'MR Angiography',                        color:'#34d399',group:'xmed'},
+  {id:'MRS',   abbr:'MRS',   name:'MR Spectroscopy',                       color:'#2dd4bf',group:'xmed'},
+  {id:'MRE',   abbr:'MRE',   name:'MR Elastography',                       color:'#22d3ee',group:'xmed'},
+  {id:'PET',   abbr:'PET',   name:'Positron Emission Tomography',          color:'#f87171',group:'xmed'},
+  {id:'PETCT', abbr:'PET-CT',name:'PET-CT',                                color:'#fb923c',group:'xmed'},
+  {id:'PETMRI',abbr:'PET-MR',name:'PET-MRI',                               color:'#fbbf24',group:'xmed'},
+  {id:'SPECT', abbr:'SPECT', name:'Single Photon Emission CT',             color:'#a78bfa',group:'xmed'},
+  {id:'PAI',   abbr:'PAI',   name:'Photoacoustic Imaging',                 color:'#f472b6',group:'xmed'},
+  {id:'XRAY',  abbr:'X-ray', name:'X-ray Radiography',                    color:'#e2e8f0',group:'xmed'},
+  // Optical
+  {id:'OI',    abbr:'OI',    name:'Optical Imaging (biolumin./fluor.)',    color:'#fde68a',group:'xopt'},
+  // Diagnostics
+  {id:'US',    abbr:'US',    name:'Ultrasound',                            color:'#7dd3fc',group:'xdiag'},
+];
+const EXTRA_GRPS=[
+  {id:'xmicro',label:'Additional Microscopy'},
+  {id:'xmed',  label:'Medical Imaging'},
+  {id:'xopt',  label:'Optical Imaging'},
+  {id:'xdiag', label:'Medical Diagnostics'},
+];
+// Research-accurate reference values for extra modalities
+const REF_EXTRA={
+  EM:    {res:9,pen:1,cost:7,scost:6,inv:10,prep:9,tput:2,tres:1,live:1,spec:4},
+  CCM:   {res:6,pen:5,cost:6,scost:6,inv:2,prep:3,tput:5,tres:5,live:8,spec:8},
+  FLIM:  {res:5,pen:4,cost:7,scost:7,inv:2,prep:3,tput:3,tres:6,live:7,spec:9},
+  CT:    {res:3,pen:10,cost:5,scost:7,inv:4,prep:1,tput:7,tres:6,live:8,spec:2},
+  MRI:   {res:4,pen:10,cost:6,scost:8,inv:1,prep:1,tput:4,tres:5,live:8,spec:4},
+  DTI:   {res:3,pen:10,cost:7,scost:8,inv:1,prep:1,tput:3,tres:4,live:6,spec:5},
+  fMRI:  {res:3,pen:10,cost:7,scost:8,inv:1,prep:1,tput:4,tres:5,live:7,spec:4},
+  MRA:   {res:3,pen:10,cost:6,scost:8,inv:2,prep:1,tput:4,tres:4,live:7,spec:3},
+  MRS:   {res:2,pen:10,cost:7,scost:8,inv:1,prep:1,tput:3,tres:3,live:7,spec:8},
+  MRE:   {res:3,pen:10,cost:7,scost:8,inv:1,prep:1,tput:3,tres:3,live:6,spec:3},
+  PET:   {res:2,pen:10,cost:8,scost:9,inv:5,prep:2,tput:3,tres:3,live:6,spec:7},
+  PETCT: {res:3,pen:10,cost:9,scost:10,inv:5,prep:2,tput:3,tres:3,live:6,spec:7},
+  PETMRI:{res:3,pen:10,cost:9,scost:10,inv:5,prep:2,tput:2,tres:3,live:6,spec:8},
+  SPECT: {res:2,pen:10,cost:7,scost:8,inv:4,prep:2,tput:3,tres:3,live:6,spec:6},
+  PAI:   {res:4,pen:7,cost:5,scost:5,inv:1,prep:1,tput:5,tres:6,live:8,spec:5},
+  XRAY:  {res:3,pen:10,cost:3,scost:5,inv:3,prep:1,tput:8,tres:6,live:7,spec:1},
+  OI:    {res:3,pen:6,cost:4,scost:4,inv:2,prep:2,tput:6,tres:5,live:8,spec:7},
+  US:    {res:3,pen:8,cost:3,scost:3,inv:1,prep:1,tput:9,tres:7,live:10,spec:2},
+};
 const LS_TOKEN='img_gh_token', LS_GIST='img_gh_gist';
 let GH_TOKEN='', GIST_ID='', DEMO_MODE=false, READ_ONLY=false;
 let liveData={}, chartMode='students';
@@ -549,7 +607,7 @@ window.addEventListener('load',()=>{
 
 // ═══════════════════════════ STATE ═══════════════════════════════
 let selMod=null, slVals=Object.fromEntries(AXES.map(a=>[a.id,5]));
-let secretCount=0,secretTimer=null,resetConfirm=false;
+let secretCount=0,secretTimer=null,resetConfirm=false,showExtraMods=false;
 
 // ═══════════════════════════ SECRET ══════════════════════════════
 function secretTap(){
@@ -662,17 +720,41 @@ function setMode(mode){
   });
   const badge=document.getElementById('modeBadge');
   const legend=document.getElementById('diffLegend');
+  const extraBar=document.getElementById('extraModBar');
   if(mode==='students'){
     badge.className='mode-badge students';badge.textContent='STUDENT DATA';
-    legend.style.display='none';
+    legend.style.display='none';extraBar.style.display='none';
   } else if(mode==='ref'){
     badge.className='mode-badge ref';badge.textContent='REFERENCE DATA';
-    legend.style.display='none';
+    legend.style.display='none';extraBar.style.display='flex';
+    buildExtraLegend();
   } else {
     badge.className='mode-badge diff';badge.textContent='COMPARISON';
-    legend.style.display='flex';
+    legend.style.display='flex';extraBar.style.display='none';
   }
   drawChart();
+}
+
+function toggleExtraMods(){
+  showExtraMods=!showExtraMods;
+  const btn=document.getElementById('extraTogBtn');
+  const leg=document.getElementById('extraLegend');
+  btn.textContent=showExtraMods?'− Hide Extra Modalities':'＋ Show Extra Modalities';
+  btn.style.background=showExtraMods?'rgba(251,191,36,.2)':'rgba(251,191,36,.1)';
+  leg.style.display=showExtraMods?'flex':'none';
+  drawChart();
+}
+
+function buildExtraLegend(){
+  const leg=document.getElementById('extraLegend');
+  leg.innerHTML='';
+  EXTRA_MODS.forEach(m=>{
+    const el=document.createElement('div');
+    el.style.cssText=`display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:8px;color:${m.color};padding:2px 6px;background:rgba(255,255,255,.03);border:1px solid ${m.color}44;border-radius:4px;white-space:nowrap`;
+    el.innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:${m.color};flex-shrink:0;display:inline-block"></span>${m.abbr}`;
+    el.title=m.name;
+    leg.appendChild(el);
+  });
 }
 
 // ════════════════════════════ CHART ══════════════════════════════
@@ -711,34 +793,38 @@ function drawChart(){
     ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
   }
 
-  // axis labels — large, white, high contrast
-  ctx.font="700 15px 'IBM Plex Sans',sans-serif";ctx.textAlign='center';
+  // axis labels — bright white, large, clearly readable on any display
+  const axFontSz=Math.max(14,Math.min(18,W/48));
+  ctx.font=`700 ${axFontSz}px 'IBM Plex Sans',sans-serif`;
+  ctx.textAlign='center';
   ctx.fillStyle='#ffffff';
-  ctx.shadowColor='rgba(0,212,255,.8)';ctx.shadowBlur=14;
-  ctx.fillText(xA?xA.label:xKey,pL+cw/2,H-12);
-  ctx.save();ctx.translate(18,pT+ch/2);ctx.rotate(-Math.PI/2);
-  ctx.shadowColor='rgba(255,112,64,.8)';ctx.shadowBlur=14;
-  ctx.fillText(yA?yA.label:yKey,0,0);ctx.restore();
+  ctx.shadowColor='rgba(0,212,255,.9)';ctx.shadowBlur=18;
+  ctx.fillText(xA?xA.label:xKey, pL+cw/2, H-14);
+  ctx.save();ctx.translate(20,pT+ch/2);ctx.rotate(-Math.PI/2);
+  ctx.shadowColor='rgba(255,112,64,.9)';ctx.shadowBlur=18;
+  ctx.fillText(yA?yA.label:yKey, 0, 0);ctx.restore();
   ctx.shadowBlur=0;
 
-  // scale end labels — clearly visible
-  ctx.font="500 11px 'IBM Plex Sans',sans-serif";ctx.fillStyle='#9ab8d4';
+  // scale end labels — bright enough to read on phone screens
+  ctx.font=`500 ${Math.max(11,Math.min(13,W/68))}px 'IBM Plex Sans',sans-serif`;
+  ctx.fillStyle='#b0cce8';
   if(xA){
-    ctx.textAlign='left'; ctx.fillText(xA.ends[0],pL,pT+ch+30);
-    ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+30);
+    ctx.textAlign='left'; ctx.fillText(xA.ends[0], pL, pT+ch+32);
+    ctx.textAlign='right';ctx.fillText(xA.ends[1], pL+cw, pT+ch+32);
   }
   if(yA){
-    ctx.save();ctx.translate(pL-44,pT+ch);ctx.rotate(-Math.PI/2);
+    ctx.save();ctx.translate(pL-46,pT+ch);ctx.rotate(-Math.PI/2);
     ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
-    ctx.save();ctx.translate(pL-44,pT);ctx.rotate(-Math.PI/2);
+    ctx.save();ctx.translate(pL-46,pT);ctx.rotate(-Math.PI/2);
     ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
   }
 
-  // ticks — readable
-  ctx.font="500 11px 'IBM Plex Mono',monospace";ctx.fillStyle='#6888a8';
+  // ticks — clearly visible
+  ctx.font=`600 ${Math.max(11,Math.min(13,W/68))}px 'IBM Plex Mono',monospace`;
+  ctx.fillStyle='#7898b8';
   for(let i=1;i<=10;i++){
-    ctx.textAlign='center';ctx.fillText(i,pL+((i-1)/9)*cw,pT+ch+15);
-    ctx.textAlign='right'; ctx.fillText(i,pL-8,pT+ch-((i-1)/9)*ch+4);
+    ctx.textAlign='center';ctx.fillText(i, pL+((i-1)/9)*cw, pT+ch+16);
+    ctx.textAlign='right'; ctx.fillText(i, pL-9, pT+ch-((i-1)/9)*ch+4);
   }
 
   let count=0;
@@ -753,6 +839,27 @@ function drawChart(){
       drawBubble(ctx,mod,xv,yv,sv,pL,pT,cw,ch,1.0);
     });
     if(chartMode==='ref')count=Object.keys(REF).length;
+    // draw extra modalities (ref mode only, when toggled on)
+    if(chartMode==='ref'&&showExtraMods){
+      EXTRA_MODS.forEach(mod=>{
+        const d=REF_EXTRA[mod.id];if(!d)return;
+        const xv=d[xKey]||5,yv=d[yKey]||5;
+        const sv=sKey==='none'?5:(d[sKey]||5);
+        // draw slightly smaller and with dashed border to distinguish
+        const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch,r=12+sv*1.8;
+        const gf=ctx.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
+        gf.addColorStop(0,mod.color+'bb');gf.addColorStop(1,mod.color+'55');
+        ctx.fillStyle=gf;
+        ctx.save();ctx.strokeStyle=mod.color;ctx.lineWidth=1.5;
+        ctx.setLineDash([4,3]);
+        ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+        ctx.setLineDash([]);ctx.restore();
+        ctx.fillStyle='#060a10';
+        ctx.font=`700 ${Math.min(10,r*.55)}px 'IBM Plex Mono',monospace`;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
+      });
+    }
 
   } else {
     // ── DIFF / COMPARE mode ──
