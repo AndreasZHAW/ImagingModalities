@@ -619,7 +619,7 @@ window.addEventListener('load',()=>{
 });
 
 // ═══════════════════════════ STATE ═══════════════════════════════
-let selMod=null, slVals=Object.fromEntries(AXES.map(a=>[a.id,5]));
+let selMod=null, slVals=Object.fromEntries(AXES.map(a=>[a.id,5])), sliderMoved=false;
 let secretCount=0,secretTimer=null,resetConfirm=false,showExtraMods=false;
 
 // ═══════════════════════════ SECRET ══════════════════════════════
@@ -649,11 +649,13 @@ function buildModGrid(){
 }
 
 function selectMod(id){
-  selMod=id;slVals=Object.fromEntries(AXES.map(a=>[a.id,5]));
+  selMod=id;slVals=Object.fromEntries(AXES.map(a=>[a.id,5]));sliderMoved=false;
   buildModGrid();
   const m=MODS.find(x=>x.id===id);
   document.getElementById('sliderTitle').textContent=`2 · Estimate Values for ${m.abbr}`;
   document.getElementById('sliderSection').style.display='block';
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=false;btn.style.opacity='1';btn.textContent='▶ SUBMIT';
   buildSliders();
   setTimeout(()=>document.getElementById('sliderSection').scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
@@ -673,7 +675,7 @@ function buildSliders(){
 }
 
 function onSlider(id,val){
-  slVals[id]=parseInt(val);
+  slVals[id]=parseInt(val);sliderMoved=true;
   document.getElementById('sv_'+id).textContent=VLBLS[id][val-1];
   const pct=((val-1)/9)*100;
   document.getElementById('sl_'+id).style.background=`linear-gradient(to right,var(--cyan) ${pct}%,var(--border2) ${pct}%)`;
@@ -882,23 +884,33 @@ function drawChart(){
   let count=0;
   const positions=[];
   function jitter(positions,R){
-    // Simple iterative push-apart
-    for(let iter=0;iter<30;iter++){
-      for(let i=0;i<positions.length;i++){
-        for(let j=i+1;j<positions.length;j++){
-          const dx=positions[j].cx-positions[i].cx;
-          const dy=positions[j].cy-positions[i].cy;
-          const dist=Math.sqrt(dx*dx+dy*dy);
-          const minD=R*2.1;
-          if(dist<minD&&dist>0.1){
-            const push=(minD-dist)/2;
-            const nx=dx/dist,ny=dy/dist;
-            positions[i].cx-=nx*push*0.5;positions[i].cy-=ny*push*0.5;
-            positions[j].cx+=nx*push*0.5;positions[j].cy+=ny*push*0.5;
-          }
-        }
+    const used=new Array(positions.length).fill(false);
+    const groups=[];
+    for(let i=0;i<positions.length;i++){
+      if(used[i])continue;
+      const grp=[i];used[i]=true;
+      for(let j=i+1;j<positions.length;j++){
+        if(used[j])continue;
+        const dx=positions[j].cx-positions[i].cx,dy=positions[j].cy-positions[i].cy;
+        if(Math.sqrt(dx*dx+dy*dy)<R*2.2){grp.push(j);used[j]=true;}
       }
+      groups.push(grp);
     }
+    groups.forEach(grp=>{
+      if(grp.length===1)return;
+      // true position = centroid
+      const tcx=grp.reduce((s,i)=>s+positions[i].cx,0)/grp.length;
+      const tcy=grp.reduce((s,i)=>s+positions[i].cy,0)/grp.length;
+      const n=grp.length, spacing=R*2.1;
+      const totalW=(n-1)*spacing;
+      grp.forEach((idx,k)=>{
+        positions[idx].cx=tcx - totalW/2 + k*spacing;
+        positions[idx].cy=tcy;
+        positions[idx].trueCx=tcx;
+        positions[idx].trueCy=tcy;
+        positions[idx].inGroup=true;
+      });
+    });
   }
 
   if(chartMode==='students'||chartMode==='ref'){
@@ -918,6 +930,16 @@ function drawChart(){
 
     const R=18;
     jitter(positions,R);
+
+    // Draw connector lines first (below bubbles)
+    positions.forEach(p=>{
+      if(p.trueCx!==undefined){
+        ctx.save();ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1;
+        ctx.setLineDash([3,3]);
+        ctx.beginPath();ctx.moveTo(p.cx,p.cy);ctx.lineTo(p.trueCx,p.trueCy);ctx.stroke();
+        ctx.setLineDash([]);ctx.restore();
+      }
+    });
 
     positions.forEach(p=>{
       if(p.extra){
