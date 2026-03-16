@@ -323,6 +323,9 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   </div>
 </div>
 
+<!-- Tooltip -->
+<div id="chartTip" style="display:none;position:fixed;background:#0d1420;border:1px solid #243548;border-radius:8px;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#dce8f0;pointer-events:none;z-index:500;max-width:220px;line-height:1.6;box-shadow:0 4px 20px rgba(0,0,0,.5)"></div>
+
 <!-- ════════════════ PDF SELECTION MODAL ════════════════ -->
 <div id="pdfModal" style="display:none;position:fixed;inset:0;background:rgba(4,8,14,.92);z-index:2000;overflow-y:auto;padding:16px">
   <div style="max-width:540px;margin:0 auto;background:var(--surf2);border:1px solid var(--border);border-radius:16px;padding:20px">
@@ -390,16 +393,26 @@ const GRPS=[
   {id:'clinical',label:'Clinical / Invasive'},
 ];
 const AXES=[
-  {id:'res',  label:'Spatial Resolution',       short:'Resolution',  ends:['~1 mm (low)','~0.1 nm (atomic)']},
-  {id:'pen',  label:'Penetration Depth',         short:'Penetration', ends:['surface only','whole organ / cm']},
-  {id:'cost', label:'Cost per Measurement',      short:'Meas. Cost',  ends:['very low','national facility']},
-  {id:'scost',label:'Setup / Instrument Cost',   short:'Setup Cost',  ends:['< 1k CHF','> 100 Mio CHF']},
-  {id:'inv',  label:'Invasiveness',              short:'Invasiveness',ends:['non-invasive','destructive']},
-  {id:'prep', label:'Sample Preparation',        short:'Sample Prep', ends:['none needed','extensive / weeks']},
-  {id:'tput', label:'Throughput',                short:'Throughput',  ends:['< 1 / day','real-time / 1000s/hr']},
-  {id:'tres', label:'Temporal Resolution',       short:'Temporal',    ends:['static / none','< 1 ms real-time']},
-  {id:'live', label:'Live / In-vivo Compatible', short:'Live/In-vivo',ends:['ex-vivo only','wearable in-vivo']},
-  {id:'spec', label:'Molecular Specificity',     short:'Specificity', ends:['no chem. info','single-molecule ID']},
+  {id:'res',  label:'Spatial Resolution',       short:'Resolution',  log:true,  ends:['1 mm','0.1 nm'],
+   ticks:[['1',1],['500µm',2],['50µm',3],['5µm',4],['1µm',5],['200nm',6],['50nm',7],['5nm',8],['1nm',9],['0.1nm',10]]},
+  {id:'pen',  label:'Penetration Depth',         short:'Penetration', log:true,  ends:['< 1 nm','> 5 cm'],
+   ticks:[['<1nm',1],['1nm',2],['10nm',3],['100nm',4],['1µm',5],['10µm',6],['100µm',7],['1mm',8],['1cm',9],['>5cm',10]]},
+  {id:'cost', label:'Cost per Measurement',      short:'Meas. Cost',  log:true,  ends:['very low','national facility'],
+   ticks:[['<10',1],['~50',2],['~200',3],['~1k',4],['~5k',5],['~20k',6],['~100k',7],['~500k',8],['~5M',9],['>50M',10]]},
+  {id:'scost',label:'Setup / Instrument Cost',   short:'Setup Cost',  log:true,  ends:['< 1k CHF','> 100 Mio CHF'],
+   ticks:[['<1k',1],['5k',2],['20k',3],['100k',4],['300k',5],['1M',6],['3M',7],['10M',8],['30M',9],['>100M',10]]},
+  {id:'inv',  label:'Invasiveness',              short:'Invasiveness',log:false, ends:['non-invasive','destructive'],
+   ticks:null},
+  {id:'prep', label:'Sample Preparation',        short:'Sample Prep', log:false, ends:['none needed','weeks'],
+   ticks:null},
+  {id:'tput', label:'Throughput',                short:'Throughput',  log:true,  ends:['< 1/day','real-time'],
+   ticks:[['<1/d',1],['1/d',2],['5/d',3],['20/d',4],['100/d',5],['1k/d',6],['10k/d',7],['100k/d',8],['1M/d',9],['RT',10]]},
+  {id:'tres', label:'Temporal Resolution',       short:'Temporal',    log:true,  ends:['static','< 1 µs'],
+   ticks:[['static',1],['days',2],['hours',3],['min',4],['sec',5],['100ms',6],['10ms',7],['1ms',8],['100µs',9],['<1µs',10]]},
+  {id:'live', label:'Live / In-vivo Compatible', short:'Live/In-vivo',log:false, ends:['ex-vivo only','wearable'],
+   ticks:null},
+  {id:'spec', label:'Molecular Specificity',     short:'Specificity', ends:['no chem. info','single-molecule ID'],
+   log:false, ticks:null},
 ];
 const VLBLS={
   res:  ['~1 mm','~500 µm','~50 µm','~5 µm','~1 µm','~200 nm','~50 nm','~5 nm','~1 nm','< 0.1 nm'],
@@ -796,131 +809,146 @@ function drawChart(){
 
   ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
 
-  // grid
-  for(let i=0;i<=10;i++){
-    const x=pL+(i/10)*cw,y=pT+(i/10)*ch;
-    ctx.strokeStyle=(i===0||i===10)?'rgba(0,212,255,.15)':'rgba(0,212,255,.04)';
-    ctx.lineWidth=1;
+  // ── Helper: value 1-10 → pixel position (log or linear) ──
+  function vtp(v,isLog,span){
+    const t=(v-1)/9; // 0..1
+    if(!isLog) return t*span;
+    // log mapping: position proportional to log10
+    const logMin=0,logMax=Math.log10(10); // log10(1)=0, log10(10)=1
+    return (Math.log10(Math.max(1,v))-logMin)/(logMax-logMin)*span;
+  }
+  function valToX(v,axA){return pL+vtp(v,axA&&axA.log,cw);}
+  function valToY(v,axA){return pT+ch-vtp(v,axA&&axA.log,ch);}
+
+  // ── Grid lines at tick positions ──
+  const tickVals=[1,2,3,4,5,6,7,8,9,10];
+  tickVals.forEach((v,i)=>{
+    const x=valToX(v,xA), y=valToY(v,yA);
+    ctx.strokeStyle=(v===1||v===10)?'rgba(0,212,255,.18)':'rgba(0,212,255,.045)';
+    ctx.lineWidth=(v===1||v===10)?1.2:0.8;
     ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+ch);ctx.stroke();
     ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
-  }
+  });
 
-  // axis labels — bright white, large, clearly readable on any display
+  // ── Axis labels ──
   const axFontSz=Math.max(14,Math.min(18,W/48));
   ctx.font=`700 ${axFontSz}px 'IBM Plex Sans',sans-serif`;
-  ctx.textAlign='center';
-  ctx.fillStyle='#ffffff';
+  ctx.textAlign='center';ctx.fillStyle='#ffffff';
   ctx.shadowColor='rgba(0,212,255,.9)';ctx.shadowBlur=18;
-  ctx.fillText(xA?xA.label:xKey, pL+cw/2, H-14);
+  ctx.fillText((xA?xA.label:xKey)+(xA&&xA.log?' [log]':''), pL+cw/2, H-14);
   ctx.save();ctx.translate(20,pT+ch/2);ctx.rotate(-Math.PI/2);
   ctx.shadowColor='rgba(255,112,64,.9)';ctx.shadowBlur=18;
-  ctx.fillText(yA?yA.label:yKey, 0, 0);ctx.restore();
+  ctx.fillText((yA?yA.label:yKey)+(yA&&yA.log?' [log]':''), 0, 0);ctx.restore();
   ctx.shadowBlur=0;
 
-  // scale end labels — bright enough to read on phone screens
-  ctx.font=`500 ${Math.max(11,Math.min(13,W/68))}px 'IBM Plex Sans',sans-serif`;
-  ctx.fillStyle='#b0cce8';
-  if(xA){
-    ctx.textAlign='left'; ctx.fillText(xA.ends[0], pL, pT+ch+32);
-    ctx.textAlign='right';ctx.fillText(xA.ends[1], pL+cw, pT+ch+32);
-  }
-  if(yA){
-    ctx.save();ctx.translate(pL-46,pT+ch);ctx.rotate(-Math.PI/2);
-    ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
-    ctx.save();ctx.translate(pL-46,pT);ctx.rotate(-Math.PI/2);
-    ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
-  }
+  // ── Tick labels: use physical labels if available ──
+  const tkFontSz=Math.max(9,Math.min(11,W/80));
+  ctx.font=`500 ${tkFontSz}px 'IBM Plex Mono',monospace`;ctx.fillStyle='#7898b8';
+  tickVals.forEach(v=>{
+    const xLbl=xA&&xA.ticks?xA.ticks[v-1][0]:String(v);
+    const yLbl=yA&&yA.ticks?yA.ticks[v-1][0]:String(v);
+    ctx.textAlign='center';ctx.fillText(xLbl, valToX(v,xA), pT+ch+15);
+    ctx.textAlign='right'; ctx.fillText(yLbl, pL-8, valToY(v,yA)+4);
+  });
 
-  // ticks — clearly visible
-  ctx.font=`600 ${Math.max(11,Math.min(13,W/68))}px 'IBM Plex Mono',monospace`;
-  ctx.fillStyle='#7898b8';
-  for(let i=1;i<=10;i++){
-    ctx.textAlign='center';ctx.fillText(i, pL+((i-1)/9)*cw, pT+ch+16);
-    ctx.textAlign='right'; ctx.fillText(i, pL-9, pT+ch-((i-1)/9)*ch+4);
+  // Scale ends
+  ctx.font=`500 ${Math.max(10,Math.min(12,W/72))}px 'IBM Plex Sans',sans-serif`;
+  ctx.fillStyle='#b0cce8';
+  if(xA){ctx.textAlign='left';ctx.fillText(xA.ends[0],pL,pT+ch+30);ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+30);}
+  if(yA){
+    ctx.save();ctx.translate(pL-46,pT+ch);ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
+    ctx.save();ctx.translate(pL-46,pT);ctx.rotate(-Math.PI/2);ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
   }
 
   let count=0;
+  // Collect all bubble positions for jitter
+  const positions=[];
+
+  function getPos(xv,yv){
+    return {cx:valToX(xv,xA), cy:valToY(yv,yA)};
+  }
+  function jitter(positions,R){
+    // Simple iterative push-apart
+    for(let iter=0;iter<30;iter++){
+      for(let i=0;i<positions.length;i++){
+        for(let j=i+1;j<positions.length;j++){
+          const dx=positions[j].cx-positions[i].cx;
+          const dy=positions[j].cy-positions[i].cy;
+          const dist=Math.sqrt(dx*dx+dy*dy);
+          const minD=R*2.1;
+          if(dist<minD&&dist>0.1){
+            const push=(minD-dist)/2;
+            const nx=dx/dist,ny=dy/dist;
+            positions[i].cx-=nx*push*0.5;positions[i].cy-=ny*push*0.5;
+            positions[j].cx+=nx*push*0.5;positions[j].cy+=ny*push*0.5;
+          }
+        }
+      }
+    }
+  }
 
   if(chartMode==='students'||chartMode==='ref'){
-    // ── Simple bubble mode ──
     const src=chartMode==='students'?liveData:REF;
-    MODS.forEach(mod=>{
-      const d=src[mod.id];if(!d)return;count++;
+    const allMods=chartMode==='ref'&&showExtraMods
+      ?[...MODS,...EXTRA_MODS]
+      :MODS;
+    const allRef=chartMode==='ref'&&showExtraMods
+      ?{...REF,...REF_EXTRA}:REF;
+
+    // Build positions
+    allMods.forEach(mod=>{
+      const d=(chartMode==='students'?src:allRef)[mod.id];if(!d)return;
       const xv=d[xKey]||5,yv=d[yKey]||5;
-      const sv=sKey==='none'?5:(d[sKey]||5);
-      drawBubble(ctx,mod,xv,yv,sv,pL,pT,cw,ch,1.0);
+      const p=getPos(xv,yv);
+      p.mod=mod;p.d=d;p.extra=!!EXTRA_MODS.find(m=>m.id===mod.id);
+      positions.push(p);count++;
     });
-    if(chartMode==='ref')count=Object.keys(REF).length;
-    // draw extra modalities (ref mode only, when toggled on)
-    if(chartMode==='ref'&&showExtraMods){
-      EXTRA_MODS.forEach(mod=>{
-        const d=REF_EXTRA[mod.id];if(!d)return;
-        const xv=d[xKey]||5,yv=d[yKey]||5;
-        const sv=sKey==='none'?5:(d[sKey]||5);
-        // draw slightly smaller and with dashed border to distinguish
-        const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch,r=12+sv*1.8;
-        const gf=ctx.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
-        gf.addColorStop(0,mod.color+'bb');gf.addColorStop(1,mod.color+'55');
-        ctx.fillStyle=gf;
-        ctx.save();ctx.strokeStyle=mod.color;ctx.lineWidth=1.5;
-        ctx.setLineDash([4,3]);
-        ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+    const R=18;
+    jitter(positions,R);
+
+    positions.forEach(p=>{
+      if(p.extra){
+        // dashed smaller bubble for extra mods
+        const gf=ctx.createRadialGradient(p.cx-R*.3,p.cy-R*.3,0,p.cx,p.cy,R*0.85);
+        gf.addColorStop(0,p.mod.color+'bb');gf.addColorStop(1,p.mod.color+'55');
+        ctx.fillStyle=gf;ctx.save();
+        ctx.strokeStyle=p.mod.color;ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+        ctx.beginPath();ctx.arc(p.cx,p.cy,R*0.85,0,Math.PI*2);ctx.fill();ctx.stroke();
         ctx.setLineDash([]);ctx.restore();
-        ctx.fillStyle='#060a10';
-        ctx.font=`700 ${Math.min(10,r*.55)}px 'IBM Plex Mono',monospace`;
+        ctx.fillStyle='#060a10';ctx.font=`700 9px 'IBM Plex Mono',monospace`;
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
-      });
-    }
+        ctx.fillText(p.mod.abbr,p.cx,p.cy);ctx.textBaseline='alphabetic';
+      } else {
+        const sv=sKey==='none'?5:(p.d[sKey]||5);
+        drawBubblePx(ctx,p.mod,p.cx,p.cy,R+sv*0.8,null);
+      }
+    });
+    if(chartMode==='ref')count=Object.keys(REF).length+(showExtraMods?EXTRA_MODS.length:0);
 
   } else {
-    // ── DIFF / COMPARE mode ──
+    // ── DIFF mode ──
     MODS.forEach(mod=>{
-      const stu=liveData[mod.id];
-      const ref=REF[mod.id];
-      if(!ref)return;
-      count++;
-
-      const rxv=ref[xKey]||5,ryv=ref[yKey]||5;
-      const rxc=pL+((rxv-1)/9)*cw;
-      const ryc=pT+ch-((ryv-1)/9)*ch;
-      const sv=sKey==='none'?5:(ref[sKey]||5);
-      const r=14+sv*2.4;
-
-      // draw reference as dashed circle
-      ctx.save();
-      ctx.strokeStyle=mod.color+'66';
-      ctx.lineWidth=1.5;
-      ctx.setLineDash([3,3]);
-      ctx.beginPath();ctx.arc(rxc,ryc,r,0,Math.PI*2);ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
+      const stu=liveData[mod.id],ref=REF[mod.id];if(!ref)return;
+      const rxc=valToX(ref[xKey]||5,xA),ryc=valToY(ref[yKey]||5,yA);
+      const R=18;
+      // dashed ref circle
+      ctx.save();ctx.strokeStyle=mod.color+'55';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.arc(rxc,ryc,R,0,Math.PI*2);ctx.stroke();
+      ctx.setLineDash([]);ctx.restore();
+      ctx.fillStyle=mod.color+'70';ctx.font=`600 9px 'IBM Plex Mono',monospace`;
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(mod.abbr,rxc,ryc);ctx.textBaseline='alphabetic';
 
       if(stu){
-        const sxv=stu[xKey]||5,syv=stu[yKey]||5;
-        const sxc=pL+((sxv-1)/9)*cw;
-        const syc=pT+ch-((syv-1)/9)*ch;
-        const dx=sxc-rxc,dy=syc-ryc;
-        const dist=Math.sqrt(dx*dx+dy*dy);
-        const threshold=((1/9)*Math.min(cw,ch))*0.6; // ~0.6 grid units
-        const same=dist<threshold;
-        const arrowColor=same?'#00e676':'#ff7040';
-
-        // draw arrow from student → reference (shows "where you should go")
-        if(!same&&dist>4){
-          drawArrow(ctx,sxc,syc,rxc,ryc,arrowColor,r);
+        const sxc=valToX(stu[xKey]||5,xA),syc=valToY(stu[yKey]||5,yA);
+        const dist=Math.sqrt((sxc-rxc)**2+(syc-ryc)**2);
+        const thr=Math.min(cw,ch)*0.06;
+        const same=dist<thr;
+        if(!same&&dist>R*2+4){
+          drawArrow(ctx,sxc,syc,rxc,ryc,same?'#00e676':'#ff7040',R);
         }
-
-        // student bubble
-        drawBubble(ctx,mod,sxv,syv,sv,pL,pT,cw,ch,1.0,same?'#00e676':null);
+        drawBubblePx(ctx,mod,sxc,syc,R,same?'#00e676':null);
       }
-
-      // ref label (always)
-      ctx.fillStyle=mod.color+'99';
-      ctx.font=`600 ${Math.min(10,r*.55)}px 'IBM Plex Mono',monospace`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(mod.abbr,rxc,ryc);
-      ctx.textBaseline='alphabetic';
     });
     count=Object.keys(REF).length;
   }
@@ -930,6 +958,9 @@ function drawChart(){
     ctx.textAlign='center';ctx.fillText('Waiting for group submissions…',pL+cw/2,pT+ch/2);
   }
 
+  // Store positions for tooltip hit detection
+  lastPositions=positions.map(p=>({...p,r:20}));
+
   // legend
   buildLegend();
   document.getElementById('countBadge').textContent=
@@ -937,22 +968,24 @@ function drawChart(){
   document.getElementById('syncTime').textContent=new Date().toLocaleTimeString('en-GB');
 }
 
-function drawBubble(ctx,mod,xv,yv,sv,pL,pT,cw,ch,alpha,overrideStroke){
-  const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch,r=14+sv*2.4;
-  ctx.globalAlpha=alpha;
-  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*2.5);
-  g.addColorStop(0,mod.color+'44');g.addColorStop(1,mod.color+'00');
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r*2.5,0,Math.PI*2);ctx.fill();
+// drawBubblePx: takes already-computed pixel coords
+function drawBubblePx(ctx,mod,cx,cy,r,overrideStroke){
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*2.2);
+  g.addColorStop(0,mod.color+'33');g.addColorStop(1,mod.color+'00');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r*2.2,0,Math.PI*2);ctx.fill();
   const gf=ctx.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
   gf.addColorStop(0,mod.color+'ee');gf.addColorStop(1,mod.color+'88');
-  ctx.fillStyle=gf;
-  ctx.strokeStyle=overrideStroke||mod.color;
-  ctx.lineWidth=overrideStroke?2.5:1.5;
+  ctx.fillStyle=gf;ctx.strokeStyle=overrideStroke||mod.color;ctx.lineWidth=overrideStroke?2.5:1.8;
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.stroke();
-  ctx.fillStyle='#060a10';
-  ctx.font=`700 ${Math.min(12,r*.6)}px 'IBM Plex Mono',monospace`;
-  ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
+  ctx.fillStyle='#060a10';ctx.font=`700 ${Math.min(12,r*.65)}px 'IBM Plex Mono',monospace`;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(mod.abbr,cx,cy);ctx.textBaseline='alphabetic';
+}
+
+// Keep old drawBubble for backward compat (PDF uses it)
+function drawBubble(ctx,mod,xv,yv,sv,pL,pT,cw,ch,alpha,overrideStroke){
+  const cx=pL+((xv-1)/9)*cw,cy=pT+ch-((yv-1)/9)*ch,r=14+sv*2.4;
+  ctx.globalAlpha=alpha||1;
+  drawBubblePx(ctx,mod,cx,cy,r,overrideStroke);
   ctx.globalAlpha=1;
 }
 
@@ -1072,7 +1105,41 @@ function showToast(msg,type='ok'){
   t.className=`toast ${type} show`;clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.className=`toast ${type}`,2500);
 }
-// ════════════════════════ PDF EXPORT ═════════════════════════════
+// ─── Tooltip ───
+let lastPositions=[];
+function setupCanvasTooltip(){
+  const canvas=document.getElementById('mc');
+  function handlePointer(e){
+    const rect=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/(rect.width*(window.devicePixelRatio||1));
+    const scaleY=canvas.height/(rect.height*(window.devicePixelRatio||1));
+    const mx=(e.clientX||e.touches?.[0]?.clientX||0)-rect.left;
+    const my=(e.clientY||e.touches?.[0]?.clientY||0)-rect.top;
+    const tip=document.getElementById('chartTip');
+    let found=null;
+    for(const p of lastPositions){
+      const dx=p.cx-mx,dy=p.cy-my;
+      if(Math.sqrt(dx*dx+dy*dy)<(p.r||20)){found=p;break;}
+    }
+    if(found){
+      const allMods=[...MODS,...EXTRA_MODS];
+      const mod=allMods.find(m=>m.id===found.mod?.id)||found.mod;
+      if(mod){
+        tip.innerHTML=`<span style="color:${mod.color};font-weight:700">${mod.abbr}</span><br><span style="color:#8aaccc;font-size:10px">${mod.name}</span>`;
+        tip.style.display='block';
+        tip.style.left=Math.min(e.clientX+14,window.innerWidth-240)+'px';
+        tip.style.top=Math.max(e.clientY-40,8)+'px';
+      }
+    } else {
+      tip.style.display='none';
+    }
+  }
+  canvas.addEventListener('mousemove',handlePointer);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();handlePointer(e);},{passive:false});
+  canvas.addEventListener('mouseleave',()=>document.getElementById('chartTip').style.display='none');
+}
+// Call once after app starts
+setTimeout(setupCanvasTooltip,500);
 
 const PDF_PRESETS=[['res','pen'],['res','inv'],['pen','inv'],['live','res'],['spec','cost'],['tres','live']];
 let pdfSelected=new Set();
