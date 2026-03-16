@@ -809,64 +809,78 @@ function drawChart(){
 
   ctx.fillStyle='#0d1420';ctx.fillRect(0,0,W,H);
 
-  // ── Helper: value 1-10 → pixel position (log or linear) ──
-  function vtp(v,isLog,span){
-    const t=(v-1)/9; // 0..1
-    if(!isLog) return t*span;
-    // log mapping: position proportional to log10
-    const logMin=0,logMax=Math.log10(10); // log10(1)=0, log10(10)=1
-    return (Math.log10(Math.max(1,v))-logMin)/(logMax-logMin)*span;
+  // ── Log mapping: value 1-10 maps to physical decades ──
+  // For log axes: val 1→10 maps to positions as if spaced by actual log of physical value
+  // Physical values per axis tick (index 0=val1 .. 9=val10):
+  const LOG_PHYS={
+    res:  [1e6, 500e3, 50e3, 5e3, 1e3, 200, 50, 5, 1, 0.1],   // nm
+    pen:  [0.1, 1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 5e7],    // nm
+    cost: [10, 50, 200, 1e3, 5e3, 20e3, 100e3, 500e3, 5e6, 50e6], // CHF
+    scost:[1e3, 5e3, 20e3, 100e3, 300e3, 1e6, 3e6, 10e6, 30e6, 100e6], // CHF
+    tput: [0.1, 1, 5, 20, 100, 1e3, 1e4, 1e5, 1e6, 1e8],      // per day
+    tres: [1e12, 1e9, 3.6e9, 6e7, 1e6, 1e5, 1e4, 1e3, 100, 1], // µs (smaller = faster)
+  };
+  function vtp(val,axId,isLog,span){
+    if(!isLog) return ((val-1)/9)*span;
+    const phys=LOG_PHYS[axId];
+    if(!phys) return ((val-1)/9)*span;
+    const idx=Math.round(Math.max(1,Math.min(10,val)))-1;
+    const p=phys[idx];
+    // map log10 of physical value to 0..1
+    const allLog=phys.map(x=>Math.log10(x));
+    const minL=Math.min(...allLog), maxL=Math.max(...allLog);
+    const t=(Math.log10(p)-minL)/(maxL-minL);
+    // For res and tres: higher value = higher resolution = right/up, but physical goes opposite
+    // res: val1=1mm(low), val10=0.1nm(high) → physical decreases → invert
+    // tres: val1=static, val10=fast → physical µs decreases → invert
+    const invert=(axId==='res'||axId==='tres');
+    return (invert?1-t:t)*span;
   }
-  function valToX(v,axA){return pL+vtp(v,axA&&axA.log,cw);}
-  function valToY(v,axA){return pT+ch-vtp(v,axA&&axA.log,ch);}
+  function valToX(v,axA){return pL+vtp(v,axA?.id,axA?.log,cw);}
+  function valToY(v,axA){return pT+ch-vtp(v,axA?.id,axA?.log,ch);}
 
   // ── Grid lines at tick positions ──
-  const tickVals=[1,2,3,4,5,6,7,8,9,10];
-  tickVals.forEach((v,i)=>{
+  for(let v=1;v<=10;v++){
     const x=valToX(v,xA), y=valToY(v,yA);
-    ctx.strokeStyle=(v===1||v===10)?'rgba(0,212,255,.18)':'rgba(0,212,255,.045)';
-    ctx.lineWidth=(v===1||v===10)?1.2:0.8;
+    ctx.strokeStyle=(v===1||v===10)?'rgba(0,212,255,.2)':'rgba(0,212,255,.05)';
+    ctx.lineWidth=(v===1||v===10)?1.2:0.7;
     ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+ch);ctx.stroke();
     ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();
-  });
+  }
 
   // ── Axis labels ──
   const axFontSz=Math.max(14,Math.min(18,W/48));
   ctx.font=`700 ${axFontSz}px 'IBM Plex Sans',sans-serif`;
   ctx.textAlign='center';ctx.fillStyle='#ffffff';
   ctx.shadowColor='rgba(0,212,255,.9)';ctx.shadowBlur=18;
-  ctx.fillText((xA?xA.label:xKey)+(xA&&xA.log?' [log]':''), pL+cw/2, H-14);
+  ctx.fillText((xA?xA.label:xKey)+(xA?.log?' [log]':''), pL+cw/2, H-14);
   ctx.save();ctx.translate(20,pT+ch/2);ctx.rotate(-Math.PI/2);
   ctx.shadowColor='rgba(255,112,64,.9)';ctx.shadowBlur=18;
-  ctx.fillText((yA?yA.label:yKey)+(yA&&yA.log?' [log]':''), 0, 0);ctx.restore();
+  ctx.fillText((yA?yA.label:yKey)+(yA?.log?' [log]':''), 0, 0);ctx.restore();
   ctx.shadowBlur=0;
 
-  // ── Tick labels: use physical labels if available ──
+  // ── Tick labels ──
   const tkFontSz=Math.max(9,Math.min(11,W/80));
   ctx.font=`500 ${tkFontSz}px 'IBM Plex Mono',monospace`;ctx.fillStyle='#7898b8';
-  tickVals.forEach(v=>{
-    const xLbl=xA&&xA.ticks?xA.ticks[v-1][0]:String(v);
-    const yLbl=yA&&yA.ticks?yA.ticks[v-1][0]:String(v);
-    ctx.textAlign='center';ctx.fillText(xLbl, valToX(v,xA), pT+ch+15);
-    ctx.textAlign='right'; ctx.fillText(yLbl, pL-8, valToY(v,yA)+4);
-  });
+  for(let v=1;v<=10;v++){
+    const xLbl=xA?.ticks?xA.ticks[v-1][0]:String(v);
+    const yLbl=yA?.ticks?yA.ticks[v-1][0]:String(v);
+    const xp=valToX(v,xA), yp=valToY(v,yA);
+    ctx.textAlign='center';ctx.fillText(xLbl, xp, pT+ch+15);
+    ctx.textAlign='right'; ctx.fillText(yLbl, pL-8, yp+4);
+  }
 
-  // Scale ends
-  ctx.font=`500 ${Math.max(10,Math.min(12,W/72))}px 'IBM Plex Sans',sans-serif`;
-  ctx.fillStyle='#b0cce8';
-  if(xA){ctx.textAlign='left';ctx.fillText(xA.ends[0],pL,pT+ch+30);ctx.textAlign='right';ctx.fillText(xA.ends[1],pL+cw,pT+ch+30);}
+  // Scale ends (low/high labels)
+  ctx.font=`italic 500 ${Math.max(9,Math.min(11,W/80))}px 'IBM Plex Sans',sans-serif`;
+  ctx.fillStyle='#8aaccc';
+  if(xA){ctx.textAlign='left';ctx.fillText('← '+xA.ends[0],pL,pT+ch+30);ctx.textAlign='right';ctx.fillText(xA.ends[1]+' →',pL+cw,pT+ch+30);}
   if(yA){
-    ctx.save();ctx.translate(pL-46,pT+ch);ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText(yA.ends[0],0,0);ctx.restore();
-    ctx.save();ctx.translate(pL-46,pT);ctx.rotate(-Math.PI/2);ctx.textAlign='right';ctx.fillText(yA.ends[1],0,0);ctx.restore();
+    ctx.save();ctx.translate(pL-50,pT+ch);ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText('← '+yA.ends[0],0,0);ctx.restore();
+    ctx.save();ctx.translate(pL-50,pT);ctx.rotate(-Math.PI/2);ctx.textAlign='right';ctx.fillText(yA.ends[1]+' →',0,0);ctx.restore();
   }
 
   let count=0;
-  // Collect all bubble positions for jitter
   const positions=[];
-
-  function getPos(xv,yv){
-    return {cx:valToX(xv,xA), cy:valToY(yv,yA)};
-  }
   function jitter(positions,R){
     // Simple iterative push-apart
     for(let iter=0;iter<30;iter++){
@@ -888,19 +902,17 @@ function drawChart(){
   }
 
   if(chartMode==='students'||chartMode==='ref'){
-    const src=chartMode==='students'?liveData:REF;
-    const allMods=chartMode==='ref'&&showExtraMods
-      ?[...MODS,...EXTRA_MODS]
-      :MODS;
-    const allRef=chartMode==='ref'&&showExtraMods
-      ?{...REF,...REF_EXTRA}:REF;
+    const isRef=chartMode==='ref';
+    const allMods=isRef&&showExtraMods?[...MODS,...EXTRA_MODS]:MODS;
 
-    // Build positions
+    // Build positions — use liveData for students, REF/REF_EXTRA for ref
     allMods.forEach(mod=>{
-      const d=(chartMode==='students'?src:allRef)[mod.id];if(!d)return;
+      const d=isRef
+        ?(EXTRA_MODS.find(m=>m.id===mod.id)?REF_EXTRA[mod.id]:REF[mod.id])
+        :liveData[mod.id];
+      if(!d)return;
       const xv=d[xKey]||5,yv=d[yKey]||5;
-      const p=getPos(xv,yv);
-      p.mod=mod;p.d=d;p.extra=!!EXTRA_MODS.find(m=>m.id===mod.id);
+      const p={cx:valToX(xv,xA),cy:valToY(yv,yA),mod,d,extra:isRef&&!!EXTRA_MODS.find(m=>m.id===mod.id)};
       positions.push(p);count++;
     });
 
