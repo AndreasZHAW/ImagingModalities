@@ -254,7 +254,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
       <div class="leg" id="leg"></div>
 
       <!-- Extra modalities toggle + legend — only shown in ref mode -->
-      <div id="extraModBar" style="display:none;flex-shrink:0;border-top:1px solid var(--border);padding:6px 14px;display:flex;align-items:center;gap:10px;background:var(--surf)">
+      <div id="extraModBar" style="display:none;flex-shrink:0;border-top:1px solid var(--border);padding:6px 14px;align-items:center;gap:10px;background:var(--surf)">
         <button id="extraTogBtn" onclick="toggleExtraMods()" style="padding:5px 12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:9px;cursor:pointer;white-space:nowrap;flex-shrink:0">＋ Show Extra Modalities</button>
         <div id="extraLegend" style="display:none;flex-wrap:wrap;gap:3px;flex:1;overflow:hidden"></div>
       </div>
@@ -748,12 +748,24 @@ function toggleExtraMods(){
 function buildExtraLegend(){
   const leg=document.getElementById('extraLegend');
   leg.innerHTML='';
-  EXTRA_MODS.forEach(m=>{
-    const el=document.createElement('div');
-    el.style.cssText=`display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:8px;color:${m.color};padding:2px 6px;background:rgba(255,255,255,.03);border:1px solid ${m.color}44;border-radius:4px;white-space:nowrap`;
-    el.innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:${m.color};flex-shrink:0;display:inline-block"></span>${m.abbr}`;
-    el.title=m.name;
-    leg.appendChild(el);
+  leg.style.cssText='display:none;flex-direction:column;gap:6px;flex:1;padding:4px 0';
+  EXTRA_GRPS.forEach(grp=>{
+    const mods=EXTRA_MODS.filter(m=>m.group===grp.id);
+    if(!mods.length)return;
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:4px;flex-wrap:wrap';
+    const lbl=document.createElement('span');
+    lbl.style.cssText='font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;margin-right:4px;min-width:120px';
+    lbl.textContent=grp.label;
+    row.appendChild(lbl);
+    mods.forEach(m=>{
+      const el=document.createElement('div');
+      el.style.cssText=`display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:8px;color:${m.color};padding:2px 6px;background:rgba(255,255,255,.03);border:1px solid ${m.color}44;border-radius:4px;white-space:nowrap;cursor:default`;
+      el.innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:${m.color};flex-shrink:0;display:inline-block"></span>${m.abbr}`;
+      el.title=m.name;
+      row.appendChild(el);
+    });
+    leg.appendChild(row);
   });
 }
 
